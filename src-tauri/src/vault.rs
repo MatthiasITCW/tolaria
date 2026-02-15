@@ -24,6 +24,8 @@ pub struct VaultEntry {
     pub cadence: Option<String>,
     #[serde(rename = "modifiedAt")]
     pub modified_at: Option<u64>,
+    #[serde(rename = "createdAt")]
+    pub created_at: Option<u64>,
     #[serde(rename = "fileSize")]
     pub file_size: u64,
 }
@@ -32,7 +34,7 @@ pub struct VaultEntry {
 #[derive(Debug, Deserialize, Default)]
 struct Frontmatter {
     #[serde(rename = "Is A")]
-    is_a: Option<String>,
+    is_a: Option<StringOrList>,
     #[serde(default)]
     aliases: Option<StringOrList>,
     #[serde(rename = "Belongs to")]
@@ -45,6 +47,10 @@ struct Frontmatter {
     owner: Option<String>,
     #[serde(rename = "Cadence")]
     cadence: Option<String>,
+    #[serde(rename = "Created at")]
+    created_at: Option<String>,
+    #[serde(rename = "Created time")]
+    created_time: Option<String>,
 }
 
 /// Handles YAML fields that can be either a single string or a list of strings.
@@ -129,11 +135,48 @@ pub fn parse_md_file(path: &Path) -> Result<VaultEntry, String> {
         .map(|d| d.as_secs());
     let file_size = metadata.len();
 
+    // Extract is_a from frontmatter, or infer from parent folder name
+    let is_a = frontmatter.is_a
+        .map(|a| a.into_vec().into_iter().next())
+        .flatten()
+        .or_else(|| {
+            path.parent()
+                .and_then(|p| p.file_name())
+                .map(|f| {
+                    let folder = f.to_string_lossy().to_string();
+                    // Map folder names to entity types
+                    match folder.as_str() {
+                        "person" => "Person".to_string(),
+                        "project" => "Project".to_string(),
+                        "procedure" => "Procedure".to_string(),
+                        "responsibility" => "Responsibility".to_string(),
+                        "event" => "Event".to_string(),
+                        "topic" => "Topic".to_string(),
+                        "experiment" => "Experiment".to_string(),
+                        "note" => "Note".to_string(),
+                        "quarter" => "Quarter".to_string(),
+                        "measure" => "Measure".to_string(),
+                        "target" => "Target".to_string(),
+                        "journal" => "Journal".to_string(),
+                        "month" => "Month".to_string(),
+                        "essay" => "Essay".to_string(),
+                        "evergreen" => "Evergreen".to_string(),
+                        _ => capitalize_first(&folder),
+                    }
+                })
+        });
+
+    // Parse created_at from frontmatter (prefer "Created at" over "Created time")
+    let created_at = frontmatter.created_at
+        .as_ref()
+        .and_then(|s| parse_iso_date(s))
+        .or_else(|| frontmatter.created_time.as_ref().and_then(|s| parse_iso_date(s)));
+
     Ok(VaultEntry {
         path: path.to_string_lossy().to_string(),
         filename,
         title,
-        is_a: frontmatter.is_a,
+        is_a,
         aliases: frontmatter.aliases.map(|a| a.into_vec()).unwrap_or_default(),
         belongs_to: frontmatter.belongs_to.map(|b| b.into_vec()).unwrap_or_default(),
         related_to: frontmatter.related_to.map(|r| r.into_vec()).unwrap_or_default(),
@@ -141,8 +184,104 @@ pub fn parse_md_file(path: &Path) -> Result<VaultEntry, String> {
         owner: frontmatter.owner,
         cadence: frontmatter.cadence,
         modified_at,
+        created_at,
         file_size,
     })
+}
+
+fn capitalize_first(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
+}
+
+/// Parse an ISO 8601 date string to Unix timestamp (seconds since epoch)
+/// Handles formats like "2025-05-23T14:35:00.000Z"
+fn parse_iso_date(date_str: &str) -> Option<u64> {
+    // Try parsing as ISO 8601 with chrono-style manual parsing
+    // Format: "YYYY-MM-DDTHH:MM:SS.sssZ" or "YYYY-MM-DD"
+    let trimmed = date_str.trim().trim_matches('"');
+    
+    // Try full datetime format
+    if let Some(t_pos) = trimmed.find('T') {
+        let date_part = &trimmed[..t_pos];
+        let time_part = trimmed[t_pos + 1..].trim_end_matches('Z');
+        
+        let date_parts: Vec<&str> = date_part.split('-').collect();
+        if date_parts.len() != 3 {
+            return None;
+        }
+        
+        let year: i32 = date_parts[0].parse().ok()?;
+        let month: u32 = date_parts[1].parse().ok()?;
+        let day: u32 = date_parts[2].parse().ok()?;
+        
+        // Parse time part (may have milliseconds)
+        let time_no_ms = time_part.split('.').next()?;
+        let time_parts: Vec<&str> = time_no_ms.split(':').collect();
+        if time_parts.len() < 2 {
+            return None;
+        }
+        
+        let hour: u32 = time_parts[0].parse().ok()?;
+        let min: u32 = time_parts[1].parse().ok()?;
+        let sec: u32 = time_parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
+        
+        // Convert to Unix timestamp (simplified calculation)
+        // Days from epoch (1970-01-01) to the given date
+        let days_since_epoch = days_from_epoch(year, month, day)?;
+        let seconds = days_since_epoch as u64 * 86400 + hour as u64 * 3600 + min as u64 * 60 + sec as u64;
+        return Some(seconds);
+    }
+    
+    // Try date-only format
+    let date_parts: Vec<&str> = trimmed.split('-').collect();
+    if date_parts.len() == 3 {
+        let year: i32 = date_parts[0].parse().ok()?;
+        let month: u32 = date_parts[1].parse().ok()?;
+        let day: u32 = date_parts[2].parse().ok()?;
+        let days_since_epoch = days_from_epoch(year, month, day)?;
+        return Some(days_since_epoch as u64 * 86400);
+    }
+    
+    None
+}
+
+/// Calculate days since Unix epoch (1970-01-01)
+fn days_from_epoch(year: i32, month: u32, day: u32) -> Option<i64> {
+    // Simplified calculation - not accounting for all edge cases
+    if month < 1 || month > 12 || day < 1 || day > 31 {
+        return None;
+    }
+    
+    // Days in each month (non-leap year)
+    let days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    
+    let is_leap = |y: i32| (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0);
+    
+    // Days from 1970 to start of year
+    let mut total_days: i64 = 0;
+    for y in 1970..year {
+        total_days += if is_leap(y) { 366 } else { 365 };
+    }
+    for y in (year..1970).rev() {
+        total_days -= if is_leap(y) { 366 } else { 365 };
+    }
+    
+    // Days in current year up to start of month
+    for m in 1..month {
+        total_days += days_in_month[m as usize] as i64;
+        if m == 2 && is_leap(year) {
+            total_days += 1;
+        }
+    }
+    
+    // Add days in current month
+    total_days += (day - 1) as i64;
+    
+    Some(total_days)
 }
 
 /// Convert gray_matter::Pod to serde_json::Value
@@ -164,6 +303,19 @@ fn pod_to_json(pod: gray_matter::Pod) -> serde_json::Value {
         }
         gray_matter::Pod::Null => serde_json::Value::Null,
     }
+}
+
+/// Read the content of a single note file.
+pub fn get_note_content(path: &str) -> Result<String, String> {
+    let file_path = Path::new(path);
+    if !file_path.exists() {
+        return Err(format!("File does not exist: {}", path));
+    }
+    if !file_path.is_file() {
+        return Err(format!("Path is not a file: {}", path));
+    }
+    fs::read_to_string(file_path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))
 }
 
 /// Scan a directory recursively for .md files and return VaultEntry for each.
@@ -202,6 +354,220 @@ pub fn scan_vault(vault_path: &str) -> Result<Vec<VaultEntry>, String> {
     entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
 
     Ok(entries)
+}
+
+/// Value type for frontmatter updates
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum FrontmatterValue {
+    String(String),
+    Number(f64),
+    Bool(bool),
+    List(Vec<String>),
+    Null,
+}
+
+impl FrontmatterValue {
+    fn to_yaml_value(&self) -> String {
+        match self {
+            FrontmatterValue::String(s) => {
+                // Quote strings that need it (contain special chars or look like other types)
+                if s.contains(':') || s.contains('#') || s.contains('\n') || 
+                   s.starts_with('[') || s.starts_with('{') ||
+                   s == "true" || s == "false" || s == "null" ||
+                   s.parse::<f64>().is_ok() {
+                    format!("\"{}\"", s.replace('\"', "\\\""))
+                } else {
+                    s.clone()
+                }
+            }
+            FrontmatterValue::Number(n) => {
+                if n.fract() == 0.0 {
+                    format!("{}", *n as i64)
+                } else {
+                    format!("{}", n)
+                }
+            }
+            FrontmatterValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
+            FrontmatterValue::List(items) => {
+                if items.is_empty() {
+                    "[]".to_string()
+                } else {
+                    // Multi-line list format
+                    items.iter()
+                        .map(|item| {
+                            let quoted = if item.contains(':') || item.starts_with('[') || item.starts_with('{') {
+                                format!("\"{}\"", item.replace('\"', "\\\""))
+                            } else {
+                                format!("\"{}\"", item)
+                            };
+                            format!("  - {}", quoted)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+            }
+            FrontmatterValue::Null => "null".to_string(),
+        }
+    }
+}
+
+/// Update a single frontmatter property in a markdown file
+pub fn update_frontmatter(path: &str, key: &str, value: FrontmatterValue) -> Result<String, String> {
+    let file_path = Path::new(path);
+    if !file_path.exists() {
+        return Err(format!("File does not exist: {}", path));
+    }
+    
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    
+    let updated = update_frontmatter_content(&content, key, Some(value))?;
+    
+    fs::write(file_path, &updated)
+        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+    
+    Ok(updated)
+}
+
+/// Delete a frontmatter property from a markdown file
+pub fn delete_frontmatter_property(path: &str, key: &str) -> Result<String, String> {
+    let file_path = Path::new(path);
+    if !file_path.exists() {
+        return Err(format!("File does not exist: {}", path));
+    }
+    
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    
+    let updated = update_frontmatter_content(&content, key, None)?;
+    
+    fs::write(file_path, &updated)
+        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+    
+    Ok(updated)
+}
+
+/// Internal function to update frontmatter content
+fn update_frontmatter_content(content: &str, key: &str, value: Option<FrontmatterValue>) -> Result<String, String> {
+    // Check if file has frontmatter
+    if !content.starts_with("---\n") {
+        // No frontmatter - add it if we're setting a value
+        return match value {
+            Some(v) => {
+                let yaml_key = format_yaml_key(key);
+                let yaml_value = v.to_yaml_value();
+                let fm = if yaml_value.contains('\n') {
+                    format!("---\n{}:\n{}\n---\n", yaml_key, yaml_value)
+                } else {
+                    format!("---\n{}: {}\n---\n", yaml_key, yaml_value)
+                };
+                Ok(format!("{}{}", fm, content))
+            }
+            None => Ok(content.to_string()), // Nothing to delete
+        };
+    }
+    
+    // Find the end of frontmatter
+    let fm_end = content[4..].find("\n---")
+        .map(|i| i + 4)
+        .ok_or_else(|| "Malformed frontmatter: no closing ---".to_string())?;
+    
+    let fm_content = &content[4..fm_end];
+    let rest = &content[fm_end + 4..]; // Skip the closing "---"
+    
+    // Parse frontmatter line by line, preserving structure
+    let lines: Vec<&str> = fm_content.lines().collect();
+    let mut new_lines: Vec<String> = Vec::new();
+    let mut found_key = false;
+    let mut i = 0;
+    
+    while i < lines.len() {
+        let line = lines[i];
+        
+        // Check if this line is our target key
+        if line_is_key(line, key) {
+            found_key = true;
+            
+            // Skip this key and any list items that follow
+            i += 1;
+            while i < lines.len() && (lines[i].starts_with("  - ") || lines[i].trim().is_empty()) {
+                if lines[i].trim().is_empty() {
+                    break;
+                }
+                i += 1;
+            }
+            
+            // Add the updated value (if not deleting)
+            if let Some(ref v) = value {
+                let yaml_key = format_yaml_key(key);
+                let yaml_value = v.to_yaml_value();
+                if yaml_value.contains('\n') {
+                    new_lines.push(format!("{}:", yaml_key));
+                    new_lines.push(yaml_value);
+                } else {
+                    new_lines.push(format!("{}: {}", yaml_key, yaml_value));
+                }
+            }
+            continue;
+        }
+        
+        new_lines.push(line.to_string());
+        i += 1;
+    }
+    
+    // If key wasn't found and we're adding, append it
+    if !found_key {
+        if let Some(ref v) = value {
+            let yaml_key = format_yaml_key(key);
+            let yaml_value = v.to_yaml_value();
+            if yaml_value.contains('\n') {
+                new_lines.push(format!("{}:", yaml_key));
+                new_lines.push(yaml_value);
+            } else {
+                new_lines.push(format!("{}: {}", yaml_key, yaml_value));
+            }
+        }
+    }
+    
+    // Rebuild the file
+    let new_fm = new_lines.join("\n");
+    Ok(format!("---\n{}\n---{}", new_fm, rest))
+}
+
+/// Check if a line defines a specific key (handles quoted and unquoted keys)
+fn line_is_key(line: &str, key: &str) -> bool {
+    let trimmed = line.trim_start();
+    
+    // Check unquoted: `key:`
+    if trimmed.starts_with(key) && trimmed[key.len()..].starts_with(':') {
+        return true;
+    }
+    
+    // Check double-quoted: `"key":`
+    let dq = format!("\"{}\":", key);
+    if trimmed.starts_with(&dq) {
+        return true;
+    }
+    
+    // Check single-quoted: `'key':`
+    let sq = format!("'{}\':", key);
+    if trimmed.starts_with(&sq) {
+        return true;
+    }
+    
+    false
+}
+
+/// Format a key for YAML output (quote if necessary)
+fn format_yaml_key(key: &str) -> String {
+    // Quote keys that contain spaces or special characters
+    if key.contains(' ') || key.contains(':') || key.contains('#') || 
+       key.chars().any(|c| !c.is_ascii_alphanumeric() && c != '_' && c != '-') {
+        format!("\"{}\"", key)
+    } else {
+        key.to_string()
+    }
 }
 
 #[cfg(test)]
@@ -339,5 +705,111 @@ This is a project note.
         let entry = parse_md_file(&dir.path().join("malformed.md"));
         // Should still succeed — gray_matter may parse partially or skip
         assert!(entry.is_ok());
+    }
+
+    #[test]
+    fn test_get_note_content() {
+        let dir = TempDir::new().unwrap();
+        let content = "---\nIs A: Note\n---\n# Test Note\n\nHello, world!";
+        create_test_file(dir.path(), "test.md", content);
+
+        let path = dir.path().join("test.md");
+        let result = get_note_content(path.to_str().unwrap());
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), content);
+    }
+
+    #[test]
+    fn test_get_note_content_nonexistent() {
+        let result = get_note_content("/nonexistent/path/file.md");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_update_frontmatter_string() {
+        let content = "---\nStatus: Draft\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "Status", Some(FrontmatterValue::String("Active".to_string()))).unwrap();
+        assert!(updated.contains("Status: Active"));
+        assert!(!updated.contains("Status: Draft"));
+    }
+
+    #[test]
+    fn test_update_frontmatter_add_new_key() {
+        let content = "---\nStatus: Draft\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "Owner", Some(FrontmatterValue::String("Luca".to_string()))).unwrap();
+        assert!(updated.contains("Owner: Luca"));
+        assert!(updated.contains("Status: Draft")); // Original key preserved
+    }
+
+    #[test]
+    fn test_update_frontmatter_quoted_key() {
+        let content = "---\n\"Is A\": Note\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "Is A", Some(FrontmatterValue::String("Project".to_string()))).unwrap();
+        assert!(updated.contains("\"Is A\": Project"));
+        assert!(!updated.contains("Note"));
+    }
+
+    #[test]
+    fn test_update_frontmatter_list() {
+        let content = "---\nStatus: Draft\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "aliases", Some(FrontmatterValue::List(vec!["Alias1".to_string(), "Alias2".to_string()]))).unwrap();
+        assert!(updated.contains("aliases:"));
+        assert!(updated.contains("  - \"Alias1\""));
+        assert!(updated.contains("  - \"Alias2\""));
+    }
+
+    #[test]
+    fn test_update_frontmatter_replace_list() {
+        let content = "---\naliases:\n  - Old1\n  - Old2\nStatus: Draft\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "aliases", Some(FrontmatterValue::List(vec!["New1".to_string()]))).unwrap();
+        assert!(updated.contains("  - \"New1\""));
+        assert!(!updated.contains("Old1"));
+        assert!(!updated.contains("Old2"));
+        assert!(updated.contains("Status: Draft")); // Other keys preserved
+    }
+
+    #[test]
+    fn test_delete_frontmatter_property() {
+        let content = "---\nStatus: Draft\nOwner: Luca\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "Owner", None).unwrap();
+        assert!(!updated.contains("Owner"));
+        assert!(updated.contains("Status: Draft")); // Other key preserved
+    }
+
+    #[test]
+    fn test_delete_frontmatter_list_property() {
+        let content = "---\naliases:\n  - Alias1\n  - Alias2\nStatus: Draft\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "aliases", None).unwrap();
+        assert!(!updated.contains("aliases"));
+        assert!(!updated.contains("Alias1"));
+        assert!(updated.contains("Status: Draft"));
+    }
+
+    #[test]
+    fn test_update_frontmatter_no_existing() {
+        let content = "# Test\n\nSome content here.";
+        let updated = update_frontmatter_content(content, "Status", Some(FrontmatterValue::String("Draft".to_string()))).unwrap();
+        assert!(updated.starts_with("---\n"));
+        assert!(updated.contains("Status: Draft"));
+        assert!(updated.contains("# Test"));
+    }
+
+    #[test]
+    fn test_update_frontmatter_bool() {
+        let content = "---\nStatus: Draft\n---\n# Test\n";
+        let updated = update_frontmatter_content(content, "Reviewed", Some(FrontmatterValue::Bool(true))).unwrap();
+        assert!(updated.contains("Reviewed: true"));
+    }
+
+    #[test]
+    fn test_format_yaml_key_simple() {
+        assert_eq!(format_yaml_key("Status"), "Status");
+        assert_eq!(format_yaml_key("is_a"), "is_a");
+    }
+
+    #[test]
+    fn test_format_yaml_key_with_spaces() {
+        assert_eq!(format_yaml_key("Is A"), "\"Is A\"");
+        assert_eq!(format_yaml_key("Created at"), "\"Created at\"");
     }
 }
