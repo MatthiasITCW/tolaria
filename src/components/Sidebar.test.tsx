@@ -16,6 +16,7 @@ const mockEntries: VaultEntry[] = [
     owner: 'Luca',
     cadence: null,
     modifiedAt: 1700000000,
+    createdAt: null,
     fileSize: 1024,
   },
   {
@@ -30,6 +31,7 @@ const mockEntries: VaultEntry[] = [
     owner: 'Luca',
     cadence: null,
     modifiedAt: 1700000000,
+    createdAt: null,
     fileSize: 512,
   },
   {
@@ -44,6 +46,7 @@ const mockEntries: VaultEntry[] = [
     owner: 'Luca',
     cadence: null,
     modifiedAt: 1700000000,
+    createdAt: null,
     fileSize: 256,
   },
   {
@@ -58,6 +61,7 @@ const mockEntries: VaultEntry[] = [
     owner: 'Luca',
     cadence: 'Weekly',
     modifiedAt: 1700000000,
+    createdAt: null,
     fileSize: 128,
   },
   {
@@ -72,6 +76,7 @@ const mockEntries: VaultEntry[] = [
     owner: null,
     cadence: null,
     modifiedAt: 1700000000,
+    createdAt: null,
     fileSize: 256,
   },
   {
@@ -86,6 +91,7 @@ const mockEntries: VaultEntry[] = [
     owner: null,
     cadence: null,
     modifiedAt: 1700000000,
+    createdAt: null,
     fileSize: 180,
   },
 ]

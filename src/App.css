@@ -1,3 +1,4 @@
+/* App layout - minimal CSS, most styling via Tailwind */
 .app {
   display: flex;
   height: 100vh;

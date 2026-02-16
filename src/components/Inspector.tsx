@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react'
 import type { VaultEntry, GitCommit } from '../types'
-import './Inspector.css'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 interface InspectorProps {
   collapsed: boolean
@@ -57,18 +58,9 @@ const SKIP_KEYS = new Set([
 ])
 
 function formatDate(timestamp: number | null): string {
-  if (!timestamp) return '—'
+  if (!timestamp) return '\u2014'
   const d = new Date(timestamp * 1000)
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
-function formatISODate(dateStr: string): string {
-  try {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  } catch {
-    return dateStr
-  }
 }
 
 function countWords(content: string | null): number {
@@ -82,19 +74,19 @@ function countWords(content: string | null): number {
 /** Parse YAML frontmatter from content */
 function parseFrontmatter(content: string | null): ParsedFrontmatter {
   if (!content) return {}
-  
+
   const match = content.match(/^---\n([\s\S]*?)\n---/)
   if (!match) return {}
-  
+
   const yaml = match[1]
   const result: ParsedFrontmatter = {}
-  
+
   let currentKey: string | null = null
   let currentList: string[] = []
   let inList = false
-  
+
   const lines = yaml.split('\n')
-  
+
   for (const line of lines) {
     // Check for list item
     const listMatch = line.match(/^  - (.*)$/)
@@ -103,35 +95,35 @@ function parseFrontmatter(content: string | null): ParsedFrontmatter {
       currentList.push(listMatch[1].replace(/^["']|["']$/g, ''))
       continue
     }
-    
+
     // If we were in a list and hit a non-list line, save it
     if (inList && currentKey) {
       result[currentKey] = currentList.length === 1 ? currentList[0] : currentList
       currentList = []
       inList = false
     }
-    
+
     // Check for key: value
     const kvMatch = line.match(/^["']?([^"':]+)["']?\s*:\s*(.*)$/)
     if (kvMatch) {
       currentKey = kvMatch[1].trim()
       const value = kvMatch[2].trim()
-      
+
       if (value === '' || value === '|' || value === '>') {
         // Empty value or multiline - wait for list items or next key
         continue
       }
-      
+
       // Handle inline list like [item1, item2]
       if (value.startsWith('[') && value.endsWith(']')) {
         const items = value.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, ''))
         result[currentKey] = items.length === 1 ? items[0] : items
         continue
       }
-      
+
       // Handle quoted string
       const unquoted = value.replace(/^["']|["']$/g, '')
-      
+
       // Handle boolean
       if (unquoted.toLowerCase() === 'true') {
         result[currentKey] = true
@@ -141,16 +133,16 @@ function parseFrontmatter(content: string | null): ParsedFrontmatter {
         result[currentKey] = false
         continue
       }
-      
+
       result[currentKey] = unquoted
     }
   }
-  
+
   // Don't forget last list if any
   if (inList && currentKey) {
     result[currentKey] = currentList.length === 1 ? currentList[0] : currentList
   }
-  
+
   return result
 }
 
@@ -190,13 +182,13 @@ function wikilinkTarget(ref: string): string {
 }
 
 // Editable value component for inline editing
-function EditableValue({ 
-  value, 
-  onSave, 
+function EditableValue({
+  value,
+  onSave,
   onCancel,
   isEditing,
-  onStartEdit 
-}: { 
+  onStartEdit
+}: {
   value: string
   onSave: (newValue: string) => void
   onCancel: () => void
@@ -204,7 +196,7 @@ function EditableValue({
   onStartEdit: () => void
 }) {
   const [editValue, setEditValue] = useState(value)
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       onSave(editValue)
@@ -213,11 +205,11 @@ function EditableValue({
       onCancel()
     }
   }
-  
+
   if (isEditing) {
     return (
       <input
-        className="inspector__edit-input"
+        className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
         type="text"
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
@@ -227,14 +219,14 @@ function EditableValue({
       />
     )
   }
-  
+
   return (
-    <span 
-      className="inspector__prop-value inspector__prop-value--editable"
+    <span
+      className="cursor-pointer rounded px-1 py-0.5 text-right text-secondary-foreground transition-colors hover:bg-muted"
       onClick={onStartEdit}
       title="Click to edit"
     >
-      {value || '—'}
+      {value || '\u2014'}
     </span>
   )
 }
@@ -243,12 +235,10 @@ function EditableValue({
 function EditableList({
   items,
   onSave,
-  onDelete,
   label,
 }: {
   items: string[]
   onSave: (newItems: string[]) => void
-  onDelete?: () => void
   label: string
 }) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -304,12 +294,12 @@ function EditableList({
   }
 
   return (
-    <div className="inspector__list-editor">
+    <div className="flex w-full flex-col gap-1">
       {items.map((item, idx) => (
-        <div key={idx} className="inspector__list-item">
+        <div key={idx} className="group/item flex items-center gap-1">
           {editingIndex === idx ? (
             <input
-              className="inspector__edit-input"
+              className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
               type="text"
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
@@ -319,19 +309,19 @@ function EditableList({
             />
           ) : (
             <>
-              <span 
-                className="inspector__list-item-text"
+              <span
+                className="flex-1 cursor-pointer truncate rounded px-1 py-0.5 text-[13px] text-secondary-foreground transition-colors hover:bg-muted"
                 onClick={() => handleStartEdit(idx)}
                 title="Click to edit"
               >
                 {item}
               </span>
               <button
-                className="inspector__list-item-delete"
+                className="border-none bg-transparent p-0 px-1 text-sm leading-none text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover/item:opacity-100"
                 onClick={() => handleDeleteItem(idx)}
                 title="Remove item"
               >
-                ×
+                &times;
               </button>
             </>
           )}
@@ -339,7 +329,7 @@ function EditableList({
       ))}
       {isAddingNew ? (
         <input
-          className="inspector__edit-input"
+          className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
           type="text"
           value={newValue}
           onChange={(e) => setNewValue(e.target.value)}
@@ -350,7 +340,7 @@ function EditableList({
         />
       ) : (
         <button
-          className="inspector__list-add"
+          className="border-none bg-transparent p-0 py-1 text-left text-xs text-muted-foreground hover:text-secondary-foreground"
           onClick={() => setIsAddingNew(true)}
         >
           + Add item
@@ -363,13 +353,13 @@ function EditableList({
 function RelationshipGroup({ label, refs, onNavigate }: { label: string; refs: string[]; onNavigate: (target: string) => void }) {
   if (refs.length === 0) return null
   return (
-    <div className="inspector__rel-group">
-      <span className="inspector__rel-label">{label}</span>
-      <div className="inspector__rel-links">
+    <div className="mb-2.5">
+      <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
+      <div className="flex flex-col gap-1">
         {refs.map((ref, idx) => (
           <button
             key={`${ref}-${idx}`}
-            className="inspector__rel-link"
+            className="border-none bg-transparent p-0 py-0.5 text-left text-[13px] text-primary cursor-pointer hover:underline"
             onClick={() => onNavigate(wikilinkTarget(ref))}
           >
             {wikilinkDisplay(ref)}
@@ -380,12 +370,12 @@ function RelationshipGroup({ label, refs, onNavigate }: { label: string; refs: s
   )
 }
 
-function DynamicRelationshipsPanel({ 
-  frontmatter, 
-  onNavigate 
-}: { 
+function DynamicRelationshipsPanel({
+  frontmatter,
+  onNavigate
+}: {
   frontmatter: ParsedFrontmatter
-  onNavigate: (target: string) => void 
+  onNavigate: (target: string) => void
 }) {
   // Find all keys that contain wikilinks
   const relationshipEntries = useMemo(() => {
@@ -413,16 +403,16 @@ function DynamicRelationshipsPanel({
 
   if (relationshipEntries.length === 0) {
     return (
-      <div className="inspector__section">
-        <h4>Relationships</h4>
-        <p className="inspector__empty">No relationships</p>
+      <div className="mb-4">
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Relationships</h4>
+        <p className="m-0 text-[13px] text-muted-foreground">No relationships</p>
       </div>
     )
   }
 
   return (
-    <div className="inspector__section">
-      <h4>Relationships</h4>
+    <div className="mb-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Relationships</h4>
       {relationshipEntries.map(({ key, refs }) => (
         <RelationshipGroup key={key} label={key} refs={refs} onNavigate={onNavigate} />
       ))}
@@ -430,14 +420,14 @@ function DynamicRelationshipsPanel({
   )
 }
 
-function DynamicPropertiesPanel({ 
-  entry, 
+function DynamicPropertiesPanel({
+  entry,
   content,
   frontmatter,
   onUpdateProperty,
   onDeleteProperty,
   onAddProperty,
-}: { 
+}: {
   entry: VaultEntry
   content: string | null
   frontmatter: ParsedFrontmatter
@@ -449,9 +439,9 @@ function DynamicPropertiesPanel({
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newKey, setNewKey] = useState('')
   const [newValue, setNewValue] = useState('')
-  
+
   const wordCount = countWords(content)
-  
+
   // Filter out relationship keys and skipped keys
   const propertyEntries = useMemo(() => {
     return Object.entries(frontmatter)
@@ -528,7 +518,7 @@ function DynamicPropertiesPanel({
         />
       )
     }
-    
+
     // Status gets special rendering but is still editable
     if (key === 'Status' || key.includes('Status')) {
       const statusStr = String(value)
@@ -536,7 +526,7 @@ function DynamicPropertiesPanel({
       if (editingKey === key) {
         return (
           <input
-            className="inspector__edit-input"
+            className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
             type="text"
             defaultValue={statusStr}
             onKeyDown={(e) => {
@@ -549,8 +539,8 @@ function DynamicPropertiesPanel({
         )
       }
       return (
-        <span 
-          className="inspector__status-pill inspector__status-pill--editable" 
+        <span
+          className="inline-block cursor-pointer rounded-xl px-2.5 py-0.5 text-xs font-medium text-white transition-opacity hover:opacity-80"
           style={{ backgroundColor: color }}
           onClick={() => setEditingKey(key)}
           title="Click to edit"
@@ -559,7 +549,7 @@ function DynamicPropertiesPanel({
         </span>
       )
     }
-    
+
     // Arrays get list editor
     if (Array.isArray(value)) {
       return (
@@ -570,12 +560,9 @@ function DynamicPropertiesPanel({
         />
       )
     }
-    
+
     // Date fields - still editable but formatted
     if (key.includes('Created') || key.includes('Modified') || key.includes('time') || key.includes('Date')) {
-      const displayValue = typeof value === 'string' && value.includes('T') 
-        ? formatISODate(value) 
-        : String(value)
       return (
         <EditableValue
           value={String(value)}
@@ -586,19 +573,19 @@ function DynamicPropertiesPanel({
         />
       )
     }
-    
+
     // Boolean
     if (typeof value === 'boolean') {
       return (
         <button
-          className="inspector__bool-toggle"
+          className="rounded border border-border bg-transparent px-2 py-0.5 text-xs text-secondary-foreground transition-colors hover:bg-muted"
           onClick={() => onUpdateProperty?.(key, !value)}
         >
-          {value ? '✓ Yes' : '✗ No'}
+          {value ? '\u2713 Yes' : '\u2717 No'}
         </button>
       )
     }
-    
+
     // Default: editable string
     return (
       <EditableValue
@@ -612,52 +599,52 @@ function DynamicPropertiesPanel({
   }
 
   return (
-    <div className="inspector__section">
-      <h4>Properties</h4>
-      <div className="inspector__props">
+    <div className="mb-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Properties</h4>
+      <div className="flex flex-col gap-2">
         {/* Always show Type from entry */}
         {entry.isA && (
-          <div className="inspector__prop">
-            <span className="inspector__prop-label">Type</span>
-            <span className="inspector__prop-value">{entry.isA}</span>
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="shrink-0 text-muted-foreground">Type</span>
+            <span className="text-right text-secondary-foreground">{entry.isA}</span>
           </div>
         )}
-        
+
         {/* Dynamic properties from frontmatter */}
         {propertyEntries.map(([key, value]) => (
-          <div key={key} className="inspector__prop">
-            <span className="inspector__prop-label">
+          <div key={key} className="group/prop flex items-center justify-between text-[13px]">
+            <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
               {key}
               {onDeleteProperty && (
                 <button
-                  className="inspector__prop-delete"
+                  className="border-none bg-transparent p-0 text-sm leading-none text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover/prop:opacity-100"
                   onClick={() => onDeleteProperty(key)}
                   title="Delete property"
                 >
-                  ×
+                  &times;
                 </button>
               )}
             </span>
             {renderEditableValue(key, value)}
           </div>
         ))}
-        
+
         {/* Always show Modified and Words (read-only) */}
-        <div className="inspector__prop">
-          <span className="inspector__prop-label">Modified</span>
-          <span className="inspector__prop-value">{formatDate(entry.modifiedAt)}</span>
+        <div className="flex items-center justify-between text-[13px]">
+          <span className="shrink-0 text-muted-foreground">Modified</span>
+          <span className="text-right text-secondary-foreground">{formatDate(entry.modifiedAt)}</span>
         </div>
-        <div className="inspector__prop">
-          <span className="inspector__prop-label">Words</span>
-          <span className="inspector__prop-value">{wordCount}</span>
+        <div className="flex items-center justify-between text-[13px]">
+          <span className="shrink-0 text-muted-foreground">Words</span>
+          <span className="text-right text-secondary-foreground">{wordCount}</span>
         </div>
       </div>
-      
+
       {/* Add property UI */}
       {showAddDialog ? (
-        <div className="inspector__add-dialog">
+        <div className="mt-3 flex flex-col gap-2 rounded-md border border-border bg-muted p-3">
           <input
-            className="inspector__edit-input"
+            className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
             type="text"
             placeholder="Property name"
             value={newKey}
@@ -666,21 +653,21 @@ function DynamicPropertiesPanel({
             autoFocus
           />
           <input
-            className="inspector__edit-input"
+            className="w-full rounded border border-ring bg-muted px-2 py-1 text-[13px] text-foreground outline-none focus:border-primary"
             type="text"
             placeholder="Value"
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}
             onKeyDown={handleAddKeyDown}
           />
-          <div className="inspector__add-dialog-buttons">
-            <button onClick={handleAddProperty} disabled={!newKey.trim()}>Add</button>
-            <button onClick={() => { setShowAddDialog(false); setNewKey(''); setNewValue('') }}>Cancel</button>
+          <div className="flex justify-end gap-2">
+            <Button size="xs" onClick={handleAddProperty} disabled={!newKey.trim()}>Add</Button>
+            <Button size="xs" variant="outline" onClick={() => { setShowAddDialog(false); setNewKey(''); setNewValue('') }}>Cancel</Button>
           </div>
         </div>
       ) : (
-        <button 
-          className="inspector__add-prop" 
+        <button
+          className="mt-3 w-full cursor-pointer rounded-md border border-dashed border-border bg-transparent px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => setShowAddDialog(true)}
           disabled={!onAddProperty}
         >
@@ -726,20 +713,22 @@ function useBacklinks(
 
 function BacklinksPanel({ backlinks, onNavigate }: { backlinks: VaultEntry[]; onNavigate: (target: string) => void }) {
   return (
-    <div className="inspector__section">
-      <h4>Backlinks {backlinks.length > 0 && <span className="inspector__count">{backlinks.length}</span>}</h4>
+    <div className="mb-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Backlinks {backlinks.length > 0 && <span className="ml-1 text-[11px] font-normal text-muted-foreground">{backlinks.length}</span>}
+      </h4>
       {backlinks.length === 0 ? (
-        <p className="inspector__empty">No backlinks</p>
+        <p className="m-0 text-[13px] text-muted-foreground">No backlinks</p>
       ) : (
-        <div className="inspector__backlinks">
+        <div className="flex flex-col gap-0.5">
           {backlinks.map((e) => (
             <button
               key={e.path}
-              className="inspector__backlink"
+              className="flex items-center justify-between gap-2 border-none bg-transparent p-0 py-1 text-left text-[13px] text-primary cursor-pointer hover:opacity-80"
               onClick={() => onNavigate(e.title)}
             >
-              <span className="inspector__backlink-title">{e.title}</span>
-              {e.isA && <span className="inspector__backlink-type">{e.isA}</span>}
+              <span className="flex-1 truncate">{e.title}</span>
+              {e.isA && <span className="shrink-0 text-[11px] text-muted-foreground">{e.isA}</span>}
             </button>
           ))}
         </div>
@@ -762,24 +751,24 @@ function formatRelativeDate(timestamp: number): string {
 
 function GitHistoryPanel({ commits }: { commits: GitCommit[] }) {
   return (
-    <div className="inspector__section">
-      <h4>History</h4>
+    <div className="mb-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">History</h4>
       {commits.length === 0 ? (
-        <p className="inspector__empty">No revision history</p>
+        <p className="m-0 text-[13px] text-muted-foreground">No revision history</p>
       ) : (
         <>
-          <div className="inspector__commits">
+          <div className="flex flex-col gap-2.5">
             {commits.map((c) => (
-              <div key={c.hash} className="inspector__commit">
-                <div className="inspector__commit-top">
-                  <span className="inspector__commit-hash">{c.shortHash}</span>
-                  <span className="inspector__commit-date">{formatRelativeDate(c.date)}</span>
+              <div key={c.hash} className="border-l-2 border-border pl-2.5">
+                <div className="mb-0.5 flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-primary">{c.shortHash}</span>
+                  <span className="text-[11px] text-muted-foreground">{formatRelativeDate(c.date)}</span>
                 </div>
-                <div className="inspector__commit-msg">{c.message}</div>
+                <div className="truncate text-xs text-secondary-foreground">{c.message}</div>
               </div>
             ))}
           </div>
-          <button className="inspector__view-all" disabled>
+          <button className="mt-2.5 cursor-not-allowed border-none bg-transparent p-0 py-1 text-xs text-muted-foreground" disabled>
             View all revisions
           </button>
         </>
@@ -788,14 +777,14 @@ function GitHistoryPanel({ commits }: { commits: GitCommit[] }) {
   )
 }
 
-export function Inspector({ 
-  collapsed, 
-  onToggle, 
-  entry, 
-  content, 
-  entries, 
-  allContent, 
-  gitHistory, 
+export function Inspector({
+  collapsed,
+  onToggle,
+  entry,
+  content,
+  entries,
+  allContent,
+  gitHistory,
   onNavigate,
   onUpdateFrontmatter,
   onDeleteProperty,
@@ -823,20 +812,27 @@ export function Inspector({
   }, [entry, onAddProperty])
 
   return (
-    <aside className={`inspector ${collapsed ? 'inspector--collapsed' : ''}`}>
-      <div className="inspector__header" data-tauri-drag-region>
-        <button className="inspector__toggle" onClick={onToggle}>
+    <aside className={cn(
+      "flex flex-col overflow-y-auto border-l border-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+      collapsed && "!w-10 !min-w-10"
+    )}>
+      <div className="flex items-center gap-2 border-b border-border px-3 py-3.5" data-tauri-drag-region style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+        <button
+          className="shrink-0 border-none bg-transparent p-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+          onClick={onToggle}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
           {collapsed ? '\u25C0' : '\u25B6'}
         </button>
-        {!collapsed && <h3>Inspector</h3>}
+        {!collapsed && <h3 className="m-0 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Inspector</h3>}
       </div>
       {!collapsed && (
-        <div className="inspector__content">
+        <div className="p-3">
           {entry ? (
             <>
-              <DynamicPropertiesPanel 
-                entry={entry} 
-                content={content} 
+              <DynamicPropertiesPanel
+                entry={entry}
+                content={content}
                 frontmatter={frontmatter}
                 onUpdateProperty={onUpdateFrontmatter ? handleUpdateProperty : undefined}
                 onDeleteProperty={onDeleteProperty ? handleDeleteProperty : undefined}
@@ -848,21 +844,21 @@ export function Inspector({
             </>
           ) : (
             <>
-              <div className="inspector__section">
-                <h4>Properties</h4>
-                <p className="inspector__empty">No note selected</p>
+              <div className="mb-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Properties</h4>
+                <p className="m-0 text-[13px] text-muted-foreground">No note selected</p>
               </div>
-              <div className="inspector__section">
-                <h4>Relationships</h4>
-                <p className="inspector__empty">No relationships</p>
+              <div className="mb-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Relationships</h4>
+                <p className="m-0 text-[13px] text-muted-foreground">No relationships</p>
               </div>
-              <div className="inspector__section">
-                <h4>Backlinks</h4>
-                <p className="inspector__empty">No backlinks</p>
+              <div className="mb-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backlinks</h4>
+                <p className="m-0 text-[13px] text-muted-foreground">No backlinks</p>
               </div>
-              <div className="inspector__section">
-                <h4>History</h4>
-                <p className="inspector__empty">No revision history</p>
+              <div className="mb-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">History</h4>
+                <p className="m-0 text-[13px] text-muted-foreground">No revision history</p>
               </div>
             </>
           )}

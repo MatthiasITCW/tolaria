@@ -379,6 +379,7 @@ function App() {
       owner: null,
       cadence: null,
       modifiedAt: now,
+      createdAt: now,
       fileSize: 0,
     }
 

@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import type { VaultEntry, SidebarSelection, ModifiedFile } from '../types'
-import './NoteList.css'
+import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Plus } from 'lucide-react'
 
 interface NoteListProps {
   entries: VaultEntry[]
@@ -20,11 +24,8 @@ interface RelationshipGroup {
 /** Extract first ~80 chars of content after the title heading */
 function getSnippet(content: string | undefined): string {
   if (!content) return ''
-  // Remove frontmatter
   const withoutFm = content.replace(/^---[\s\S]*?---\s*/, '')
-  // Remove the first heading
   const withoutH1 = withoutFm.replace(/^#\s+.*\n+/, '')
-  // Clean markdown syntax and collapse whitespace
   const clean = withoutH1
     .replace(/[#*_`\[\]]/g, '')
     .replace(/\n+/g, ' ')
@@ -32,13 +33,11 @@ function getSnippet(content: string | undefined): string {
   return clean.slice(0, 80) + (clean.length > 80 ? '...' : '')
 }
 
-/** Format a relative date string */
 function relativeDate(ts: number | null): string {
   if (!ts) return ''
   const now = Math.floor(Date.now() / 1000)
   const diff = now - ts
   if (diff < 0) {
-    // Future date - just show the date
     const date = new Date(ts * 1000)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
@@ -50,15 +49,11 @@ function relativeDate(ts: number | null): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-/** Get the best date to display for an entry (prefer modifiedAt, fallback to createdAt) */
 function getDisplayDate(entry: VaultEntry): number | null {
-  // Prefer modifiedAt (most recent activity), but fall back to createdAt
   return entry.modifiedAt ?? entry.createdAt
 }
 
-/** Check if a wikilink array (e.g. belongsTo) references a given entry by path stem */
 function refsMatch(refs: string[], entry: VaultEntry): boolean {
-  // Extract the path stem: /Users/luca/Laputa/project/26q1-laputa-app.md → project/26q1-laputa-app
   const stem = entry.path.replace(/^.*\/Laputa\//, '').replace(/\.md$/, '')
   return refs.some((ref) => {
     const inner = ref.replace(/^\[\[/, '').replace(/\]\]$/, '')
@@ -66,7 +61,6 @@ function refsMatch(refs: string[], entry: VaultEntry): boolean {
   })
 }
 
-/** Resolve wikilink references to actual VaultEntry objects */
 function resolveRefs(refs: string[], entries: VaultEntry[]): VaultEntry[] {
   return refs
     .map((ref) => {
@@ -86,12 +80,10 @@ function sortByModified(a: VaultEntry, b: VaultEntry): number {
   return (getDisplayDate(b) ?? 0) - (getDisplayDate(a) ?? 0)
 }
 
-/** Build relationship groups for an entity view */
 function buildRelationshipGroups(entity: VaultEntry, allEntries: VaultEntry[]): RelationshipGroup[] {
   const groups: RelationshipGroup[] = []
   const seen = new Set<string>([entity.path])
 
-  // 1. Children: items whose belongsTo references this entity (non-events)
   const children = allEntries
     .filter((e) => !seen.has(e.path) && e.isA !== 'Event' && refsMatch(e.belongsTo, entity))
     .sort(sortByModified)
@@ -100,7 +92,6 @@ function buildRelationshipGroups(entity: VaultEntry, allEntries: VaultEntry[]): 
     children.forEach((e) => seen.add(e.path))
   }
 
-  // 2. Events that reference this entity (via belongsTo or relatedTo)
   const events = allEntries
     .filter(
       (e) =>
@@ -114,7 +105,6 @@ function buildRelationshipGroups(entity: VaultEntry, allEntries: VaultEntry[]): 
     events.forEach((e) => seen.add(e.path))
   }
 
-  // 3. Referenced By: non-event items whose relatedTo references this entity
   const referencedBy = allEntries
     .filter((e) => !seen.has(e.path) && e.isA !== 'Event' && refsMatch(e.relatedTo, entity))
     .sort(sortByModified)
@@ -123,14 +113,12 @@ function buildRelationshipGroups(entity: VaultEntry, allEntries: VaultEntry[]): 
     referencedBy.forEach((e) => seen.add(e.path))
   }
 
-  // 4. Belongs To: resolve this entity's own belongsTo references
   const belongsTo = resolveRefs(entity.belongsTo, allEntries).filter((e) => !seen.has(e.path))
   if (belongsTo.length > 0) {
     groups.push({ label: 'Belongs To', entries: belongsTo })
     belongsTo.forEach((e) => seen.add(e.path))
   }
 
-  // 5. Related To: resolve this entity's own relatedTo references
   const relatedTo = resolveRefs(entity.relatedTo, allEntries).filter((e) => !seen.has(e.path))
   if (relatedTo.length > 0) {
     groups.push({ label: 'Related To', entries: relatedTo })
@@ -156,17 +144,14 @@ function filterEntries(entries: VaultEntry[], selection: SidebarSelection, modif
           return entries.filter((e) => modifiedPaths.has(e.path))
         }
         case 'favorites':
-          // TODO: Implement favorites (needs a "favorite" field in frontmatter)
           return []
         case 'trash':
-          // TODO: Implement trash (needs deleted/archived status)
           return []
       }
       break
     case 'sectionGroup':
       return entries.filter((e) => e.isA === selection.type)
     case 'entity':
-      // Handled separately via buildRelationshipGroups
       return []
     case 'topic': {
       const topic = selection.entry
@@ -186,20 +171,33 @@ const TYPE_PILLS = [
   { label: 'Responsibilities', type: 'Responsibility' },
 ] as const
 
+const TYPE_COLORS: Record<string, string> = {
+  project: 'bg-[rgba(74,158,255,0.15)] text-[#4a9eff]',
+  responsibility: 'bg-[rgba(156,114,255,0.15)] text-[#9c72ff]',
+  procedure: 'bg-[rgba(255,152,0,0.15)] text-[#ff9800]',
+  experiment: 'bg-[rgba(0,200,150,0.15)] text-[#00c896]',
+  note: 'bg-[rgba(200,200,200,0.1)] text-[#999]',
+  person: 'bg-[rgba(255,100,130,0.15)] text-[#ff6482]',
+  event: 'bg-[rgba(255,200,50,0.15)] text-[#e6b800]',
+  topic: 'bg-[rgba(100,220,200,0.15)] text-[#64dcc8]',
+}
+
+const GIT_STATUS_COLORS: Record<string, string> = {
+  modified: 'bg-[rgba(255,152,0,0.15)] text-[#ff9800]',
+  added: 'bg-[rgba(76,175,80,0.15)] text-[#4caf50]',
+  deleted: 'bg-[rgba(244,67,54,0.15)] text-[#f44336]',
+  untracked: 'bg-[rgba(76,175,80,0.15)] text-[#4caf50]',
+  renamed: 'bg-[rgba(33,150,243,0.15)] text-[#2196f3]',
+}
+
 export function NoteList({ entries, selection, selectedNote, allContent, modifiedFiles, onSelectNote, onCreateNote }: NoteListProps) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
 
   const isEntityView = selection.kind === 'entity'
-
-  // Entity view: build relationship groups
-  const entityGroups = isEntityView
-    ? buildRelationshipGroups(selection.entry, entries)
-    : []
-
+  const entityGroups = isEntityView ? buildRelationshipGroups(selection.entry, entries) : []
   const isChangesView = selection.kind === 'filter' && selection.filter === 'changes'
 
-  // Build a lookup for modified file status
   const modifiedStatusMap = new Map<string, string>()
   if (modifiedFiles) {
     for (const f of modifiedFiles) {
@@ -207,14 +205,11 @@ export function NoteList({ entries, selection, selectedNote, allContent, modifie
     }
   }
 
-  // Non-entity view: flat filtered list
   const filtered = isEntityView ? [] : filterEntries(entries, selection, modifiedFiles)
   const sorted = isEntityView ? [] : [...filtered].sort(sortByModified)
 
-  // Search filter
   const query = search.trim().toLowerCase()
 
-  // For entity view: filter within groups
   const searchedGroups = query
     ? entityGroups
         .map((g) => ({
@@ -224,26 +219,22 @@ export function NoteList({ entries, selection, selectedNote, allContent, modifie
         .filter((g) => g.entries.length > 0)
     : entityGroups
 
-  // For flat view
   const searched = query
     ? sorted.filter((e) => e.title.toLowerCase().includes(query))
     : sorted
 
-  // Compute per-type counts from the searched results (before type filter)
   const typeCounts = new Map<string | null, number>()
-  typeCounts.set(null, searched.length) // "All" count
+  typeCounts.set(null, searched.length)
   for (const entry of searched) {
     if (entry.isA) {
       typeCounts.set(entry.isA, (typeCounts.get(entry.isA) ?? 0) + 1)
     }
   }
 
-  // Type filter pills (flat view only)
   const displayed = typeFilter
     ? searched.filter((e) => e.isA === typeFilter)
     : searched
 
-  // Total count for header
   const totalCount = isEntityView
     ? searchedGroups.reduce((sum, g) => sum + g.entries.length, 0)
     : displayed.length
@@ -253,53 +244,80 @@ export function NoteList({ entries, selection, selectedNote, allContent, modifie
     return (
       <div
         key={entry.path}
-        className={`note-list__item${isPinned ? ' note-list__item--pinned' : ''}${
-          selectedNote?.path === entry.path ? ' note-list__item--selected' : ''
-        }`}
+        className={cn(
+          "cursor-pointer border-b border-[var(--border-subtle)] px-4 py-2.5 transition-colors",
+          isPinned && "border-l-[3px] border-l-[var(--accent-green)] bg-muted pl-[13px]",
+          selectedNote?.path === entry.path && !isPinned && "border-l-[3px] border-l-primary bg-[var(--bg-selected)] pl-[13px]",
+          !isPinned && selectedNote?.path !== entry.path && "hover:bg-muted"
+        )}
         onClick={() => onSelectNote(entry)}
       >
-        <div className="note-list__item-top">
-          <div className="note-list__title">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center truncate text-[13px] font-semibold text-foreground">
             {isChangesView && gitStatus && (
-              <span className={`note-list__git-status note-list__git-status--${gitStatus}`}>
+              <span className={cn(
+                "mr-1.5 inline-flex size-[18px] shrink-0 items-center justify-center rounded-sm font-mono text-[10px] font-bold",
+                GIT_STATUS_COLORS[gitStatus]
+              )}>
                 {gitStatus === 'modified' ? 'M' : gitStatus === 'added' ? 'A' : gitStatus === 'deleted' ? 'D' : gitStatus === 'untracked' ? '?' : 'R'}
               </span>
             )}
-            {entry.title}
+            <span className="truncate">{entry.title}</span>
           </div>
-          <span className="note-list__date">{relativeDate(getDisplayDate(entry))}</span>
+          <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground">
+            {relativeDate(getDisplayDate(entry))}
+          </span>
         </div>
-        <div className="note-list__snippet">{getSnippet(allContent[entry.path])}</div>
-        <div className="note-list__meta">
-          {entry.isA && <span className={`note-list__type note-list__type--${entry.isA.toLowerCase()}`}>{entry.isA}</span>}
-          {entry.status && <span className="note-list__status">{entry.status}</span>}
+        <div className="mt-0.5 truncate text-xs leading-relaxed text-muted-foreground">
+          {getSnippet(allContent[entry.path])}
+        </div>
+        <div className="mt-1 flex gap-1.5 text-[11px]">
+          {entry.isA && (
+            <span className={cn(
+              "rounded-sm px-1.5 py-px text-[10px] font-medium tracking-wide",
+              TYPE_COLORS[entry.isA.toLowerCase()] ?? "bg-secondary text-secondary-foreground"
+            )}>
+              {entry.isA}
+            </span>
+          )}
+          {entry.status && (
+            <span className="text-[10px] text-[var(--accent-green)]">
+              {entry.status}
+            </span>
+          )}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="note-list">
-      <div className="note-list__header" data-tauri-drag-region>
-        <h3>{isEntityView ? selection.entry.title : 'Notes'}</h3>
-        <div className="note-list__header-right">
-          <span className="note-list__count">{totalCount}</span>
-          <button className="note-list__add-btn" onClick={onCreateNote} title="Create new note">
-            +
-          </button>
+    <div className="flex flex-col overflow-y-auto border-r border-border bg-card text-foreground">
+      {/* Header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3.5" data-tauri-drag-region style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+        <h3 className="m-0 min-w-0 flex-1 truncate text-sm font-semibold">
+          {isEntityView ? selection.entry.title : 'Notes'}
+        </h3>
+        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <Badge variant="secondary" className="text-[11px]">{totalCount}</Badge>
+          <Button variant="secondary" size="icon-xs" onClick={onCreateNote} title="Create new note">
+            <Plus className="size-4" />
+          </Button>
         </div>
       </div>
-      <div className="note-list__search">
-        <input
-          type="text"
-          className="note-list__search-input"
+
+      {/* Search */}
+      <div className="border-b border-border px-3 py-2">
+        <Input
           placeholder="Search notes..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="h-8 text-[13px]"
         />
       </div>
+
+      {/* Type filter pills */}
       {!isEntityView && (
-        <div className="note-list__pills">
+        <div className="flex flex-wrap gap-1 border-b border-border px-3 py-2">
           {TYPE_PILLS.filter(({ type }) => {
             const count = typeCounts.get(type) ?? 0
             return type === null || count > 0
@@ -308,29 +326,38 @@ export function NoteList({ entries, selection, selectedNote, allContent, modifie
             return (
               <button
                 key={label}
-                className={`note-list__pill${typeFilter === type ? ' note-list__pill--active' : ''}`}
+                className={cn(
+                  "whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
+                  typeFilter === type
+                    ? "border-primary/20 bg-primary/10 text-primary"
+                    : "border-border bg-transparent text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                )}
                 onClick={() => setTypeFilter(type)}
               >
-                {label} <span className="note-list__pill-count">{count}</span>
+                {label} <span className="ml-0.5 opacity-60 text-[10px]">{count}</span>
               </button>
             )
           })}
         </div>
       )}
-      <div className="note-list__items">
+
+      {/* Items */}
+      <div className="flex-1 overflow-y-auto">
         {isEntityView ? (
           <>
             {renderItem(selection.entry, true)}
             {searchedGroups.length === 0 ? (
-              <div className="note-list__empty">
+              <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">
                 {query ? 'No matching items' : 'No related items'}
               </div>
             ) : (
               searchedGroups.map((group) => (
-                <div key={group.label} className="note-list__group">
-                  <div className="note-list__group-header">
-                    <span className="note-list__group-label">{group.label}</span>
-                    <span className="note-list__group-count">{group.entries.length}</span>
+                <div key={group.label} className="border-t border-[var(--border-subtle)]">
+                  <div className="flex items-center justify-between px-4 py-2.5 pt-3">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.label}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px]">{group.entries.length}</Badge>
                   </div>
                   {group.entries.map((entry) => renderItem(entry))}
                 </div>
@@ -339,7 +366,7 @@ export function NoteList({ entries, selection, selectedNote, allContent, modifie
           </>
         ) : (
           displayed.length === 0 ? (
-            <div className="note-list__empty">No notes found</div>
+            <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">No notes found</div>
           ) : (
             displayed.map((entry) => renderItem(entry))
           )

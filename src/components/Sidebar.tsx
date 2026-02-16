@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import type { VaultEntry, SidebarSelection } from '../types'
-import './Sidebar.css'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Sun, Moon, Plus, ChevronRight, ChevronDown, GitCommitHorizontal } from 'lucide-react'
 
 interface SidebarProps {
   entries: VaultEntry[]
@@ -38,11 +41,15 @@ export function Sidebar({ entries, selection, onSelect, onSelectNote, modifiedCo
   })
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
     try {
       localStorage.setItem('laputa-theme', theme)
     } catch {
-      // localStorage unavailable (e.g. in tests)
+      // localStorage unavailable
     }
   }, [theme])
 
@@ -64,79 +71,98 @@ export function Sidebar({ entries, selection, onSelect, onSelectNote, modifiedCo
   }
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar__header" data-tauri-drag-region>
-        <h2>Laputa</h2>
-        <button
-          className="sidebar__theme-toggle"
+    <aside className="flex h-full flex-col overflow-y-auto bg-sidebar text-sidebar-foreground">
+      {/* Header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 pl-[78px]" data-tauri-drag-region style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+        <h2 className="m-0 text-[17px] font-bold tracking-tight text-foreground">Laputa</h2>
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="text-muted-foreground hover:text-foreground"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          {theme === 'dark' ? '\u2600' : '\u263D'}
-        </button>
+          {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </Button>
       </div>
 
-      <nav className="sidebar__nav">
-        <div className="sidebar__filters">
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-2">
+        {/* Filters */}
+        <div className="mb-2 border-b border-border py-1">
           {FILTERS.map(({ label, filter }) => (
             <div
               key={filter}
-              className={`sidebar__filter-item${
-                isActive({ kind: 'filter', filter }) ? ' sidebar__filter-item--active' : ''
-              }`}
+              className={cn(
+                "mx-1.5 my-px cursor-pointer rounded-md px-4 py-1.5 text-[13px] transition-colors",
+                isActive({ kind: 'filter', filter })
+                  ? "bg-primary/10 font-medium text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
               onClick={() => onSelect({ kind: 'filter', filter })}
             >
-              {label}
-              {filter === 'changes' && modifiedCount > 0 && (
-                <span className="sidebar__badge">{modifiedCount}</span>
-              )}
+              <span className="flex items-center gap-1.5">
+                {label}
+                {filter === 'changes' && modifiedCount > 0 && (
+                  <Badge className="h-[18px] min-w-[18px] bg-[var(--accent-orange)] px-1 text-[10px] text-white">
+                    {modifiedCount}
+                  </Badge>
+                )}
+              </span>
             </div>
           ))}
         </div>
 
+        {/* Section Groups */}
         {SECTION_GROUPS.map(({ label, type }) => {
           const items = entries.filter((e) => e.isA === type)
           const isCollapsed = collapsed[type] ?? false
 
           return (
-            <div key={type} className="sidebar__section">
+            <div key={type} className="mb-1">
               <div
-                className={`sidebar__section-header${
-                  isActive({ kind: 'sectionGroup', type }) ? ' sidebar__section-header--active' : ''
-                }`}
+                className={cn(
+                  "mx-1 flex cursor-pointer select-none items-center rounded px-2 py-1.5 text-[11px] font-semibold tracking-wide",
+                  isActive({ kind: 'sectionGroup', type })
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                )}
                 onClick={() => onSelect({ kind: 'sectionGroup', type })}
               >
                 <button
-                  className="sidebar__collapse-btn"
+                  className="mr-1 flex shrink-0 items-center bg-transparent border-none text-inherit cursor-pointer p-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     toggleSection(type)
                   }}
                   aria-label={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
                 >
-                  {isCollapsed ? '\u25B8' : '\u25BE'}
+                  {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
                 </button>
-                <span className="sidebar__section-label">{label}</span>
-                <span className="sidebar__section-count">{items.length}</span>
+                <span className="flex-1">{label}</span>
+                <span className="text-[10px] text-muted-foreground mr-1">{items.length}</span>
                 <button
-                  className="sidebar__add-btn"
+                  className="flex items-center bg-transparent border-none text-muted-foreground cursor-pointer p-0 opacity-0 transition-opacity group-hover/section:opacity-100 hover:text-foreground"
                   onClick={(e) => {
                     e.stopPropagation()
-                    // TODO: Wire up create new entity
                   }}
                   aria-label={`Add ${type}`}
                 >
-                  +
+                  <Plus className="size-3.5" />
                 </button>
               </div>
               {!isCollapsed && (
-                <div className="sidebar__section-items">
+                <div className="py-0.5">
                   {items.map((entry) => (
                     <div
                       key={entry.path}
-                      className={`sidebar__item${
-                        isActive({ kind: 'entity', entry }) ? ' sidebar__item--active' : ''
-                      }`}
+                      className={cn(
+                        "mx-1.5 my-px cursor-pointer truncate rounded-md py-1.5 pl-7 pr-4 text-[13px] transition-colors",
+                        isActive({ kind: 'entity', entry })
+                          ? "bg-primary/10 font-medium text-primary"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      )}
                       onClick={() => {
                         onSelect({ kind: 'entity', entry })
                         onSelectNote?.(entry)
@@ -151,18 +177,24 @@ export function Sidebar({ entries, selection, onSelect, onSelectNote, modifiedCo
           )
         })}
 
+        {/* Topics */}
         {(() => {
           const topics = entries.filter((e) => e.isA === 'Topic')
           if (topics.length === 0) return null
           return (
-            <div className="sidebar__topics">
-              <div className="sidebar__topics-header">TOPICS</div>
+            <div className="mt-2 border-t border-border pt-2">
+              <div className="px-4 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground select-none">
+                TOPICS
+              </div>
               {topics.map((entry) => (
                 <div
                   key={entry.path}
-                  className={`sidebar__topic-item${
-                    isActive({ kind: 'topic', entry }) ? ' sidebar__topic-item--active' : ''
-                  }`}
+                  className={cn(
+                    "mx-1.5 my-px cursor-pointer truncate rounded-md py-1.5 pl-7 pr-4 text-[13px] transition-colors",
+                    isActive({ kind: 'topic', entry })
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
                   onClick={() => {
                     onSelect({ kind: 'topic', entry })
                     onSelectNote?.(entry)
@@ -175,12 +207,17 @@ export function Sidebar({ entries, selection, onSelect, onSelectNote, modifiedCo
           )
         })()}
       </nav>
+
+      {/* Commit button */}
       {modifiedCount > 0 && onCommitPush && (
-        <div className="sidebar__commit">
-          <button className="sidebar__commit-btn" onClick={onCommitPush}>
+        <div className="shrink-0 border-t border-border p-3">
+          <Button className="w-full gap-1.5" size="sm" onClick={onCommitPush}>
+            <GitCommitHorizontal className="size-3.5" />
             Commit & Push
-            <span className="sidebar__badge">{modifiedCount}</span>
-          </button>
+            <Badge className="ml-1 bg-white/25 text-white text-[10px] h-[18px] min-w-[18px] px-1">
+              {modifiedCount}
+            </Badge>
+          </Button>
         </div>
       )}
     </aside>

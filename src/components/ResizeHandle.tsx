@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from 'react'
-import './ResizeHandle.css'
 
 interface ResizeHandleProps {
   onResize: (delta: number) => void
@@ -44,5 +43,10 @@ export function ResizeHandle({ onResize }: ResizeHandleProps) {
     }
   }, [onResize])
 
-  return <div className="resize-handle" onMouseDown={handleMouseDown} />
+  return (
+    <div
+      className="w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--border-dialog)]"
+      onMouseDown={handleMouseDown}
+    />
+  )
 }

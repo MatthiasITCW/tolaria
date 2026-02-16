@@ -15,6 +15,7 @@ const mockEntry: VaultEntry = {
   owner: 'Luca Rossi',
   cadence: null,
   modifiedAt: 1707900000,
+  createdAt: null,
   fileSize: 1024,
 }
 
@@ -41,6 +42,7 @@ const referrerEntry: VaultEntry = {
   owner: null,
   cadence: null,
   modifiedAt: 1707900000,
+  createdAt: null,
   fileSize: 200,
 }
 

@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import './CreateNoteDialog.css'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 const NOTE_TYPES = [
   'Note',
@@ -29,22 +32,9 @@ export function CreateNoteDialog({ open, onClose, onCreate }: CreateNoteDialogPr
     if (open) {
       setTitle('')
       setType('Note')
-      // Focus input after render
       setTimeout(() => inputRef.current?.focus(), 50)
     }
   }, [open])
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
-
-  if (!open) return null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,46 +45,55 @@ export function CreateNoteDialog({ open, onClose, onCreate }: CreateNoteDialogPr
   }
 
   return (
-    <div className="create-dialog__overlay" onClick={onClose}>
-      <div className="create-dialog" onClick={(e) => e.stopPropagation()}>
-        <h3 className="create-dialog__title">Create New Note</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="create-dialog__field">
-            <label className="create-dialog__label">Title</label>
-            <input
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent showCloseButton={false} className="sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle>Create New Note</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Title
+            </label>
+            <Input
               ref={inputRef}
-              className="create-dialog__input"
-              type="text"
               placeholder="Enter note title..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
-          <div className="create-dialog__field">
-            <label className="create-dialog__label">Type</label>
-            <div className="create-dialog__types">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Type
+            </label>
+            <div className="flex flex-wrap gap-1.5">
               {NOTE_TYPES.map((t) => (
-                <button
+                <Button
                   key={t}
                   type="button"
-                  className={`create-dialog__type-btn${type === t ? ' create-dialog__type-btn--active' : ''}`}
+                  variant={type === t ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(
+                    "rounded-full text-xs",
+                    type === t && "bg-primary text-primary-foreground"
+                  )}
                   onClick={() => setType(t)}
                 >
                   {t}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
-          <div className="create-dialog__actions">
-            <button type="button" className="create-dialog__btn create-dialog__btn--cancel" onClick={onClose}>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button type="submit" className="create-dialog__btn create-dialog__btn--create" disabled={!title.trim()}>
+            </Button>
+            <Button type="submit" disabled={!title.trim()}>
               Create
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

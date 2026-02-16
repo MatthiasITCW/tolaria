@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import './CommitDialog.css'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 interface CommitDialogProps {
   open: boolean
@@ -15,12 +17,9 @@ export function CommitDialog({ open, modifiedCount, onCommit, onClose }: CommitD
   useEffect(() => {
     if (open) {
       setMessage('')
-      // Focus with a small delay to ensure the dialog is rendered
       setTimeout(() => inputRef.current?.focus(), 50)
     }
   }, [open])
-
-  if (!open) return null
 
   const handleSubmit = () => {
     const trimmed = message.trim()
@@ -38,37 +37,37 @@ export function CommitDialog({ open, modifiedCount, onCommit, onClose }: CommitD
   }
 
   return (
-    <div className="commit-dialog__overlay" onClick={onClose}>
-      <div className="commit-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="commit-dialog__header">
-          <h3>Commit & Push</h3>
-          <span className="commit-dialog__count">{modifiedCount} file{modifiedCount !== 1 ? 's' : ''} changed</span>
-        </div>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent showCloseButton={false} className="sm:max-w-[420px]">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Commit & Push</DialogTitle>
+            <Badge variant="secondary" className="text-xs">
+              {modifiedCount} file{modifiedCount !== 1 ? 's' : ''} changed
+            </Badge>
+          </div>
+        </DialogHeader>
         <textarea
           ref={inputRef}
-          className="commit-dialog__input"
+          className="w-full resize-y rounded-lg border border-input bg-[var(--bg-input)] px-3 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-ring"
           placeholder="Commit message..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={3}
         />
-        <div className="commit-dialog__footer">
-          <span className="commit-dialog__hint">Cmd+Enter to commit</span>
-          <div className="commit-dialog__actions">
-            <button className="commit-dialog__cancel" onClick={onClose}>
+        <DialogFooter className="flex-row items-center justify-between sm:justify-between">
+          <span className="text-[11px] text-muted-foreground">Cmd+Enter to commit</span>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              className="commit-dialog__submit"
-              onClick={handleSubmit}
-              disabled={!message.trim()}
-            >
+            </Button>
+            <Button onClick={handleSubmit} disabled={!message.trim()}>
               Commit & Push
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

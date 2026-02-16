@@ -6,6 +6,9 @@ import { BlockNoteView } from '@blocknote/mantine'
 import '@blocknote/mantine/style.css'
 import type { VaultEntry } from '../types'
 import { useEditorTheme } from '../hooks/useTheme'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { X } from 'lucide-react'
 import './Editor.css'
 import './EditorTheme.css'
 
@@ -56,8 +59,6 @@ const schema = BlockNoteSchema.create({
   },
 })
 
-type EditorType = typeof schema.BlockNoteEditorType
-
 /** Strip YAML frontmatter from markdown, returning [frontmatter, body] */
 function splitFrontmatter(content: string): [string, string] {
   if (!content.startsWith('---')) return ['', content]
@@ -95,17 +96,14 @@ function expandWikilinksInContent(content: any[]): any[] {
   const result: any[] = []
   for (const item of content) {
     if (item.type === 'text' && typeof item.text === 'string' && item.text.includes(WL_START)) {
-      // Split this text node around wikilink placeholders
       const text = item.text as string
       let lastIndex = 0
       WL_RE.lastIndex = 0
       let match
       while ((match = WL_RE.exec(text)) !== null) {
-        // Text before this match
         if (match.index > lastIndex) {
           result.push({ ...item, text: text.slice(lastIndex, match.index) })
         }
-        // The wikilink
         result.push({
           type: 'wikilink',
           props: { target: match[1] },
@@ -113,7 +111,6 @@ function expandWikilinksInContent(content: any[]): any[] {
         })
         lastIndex = match.index + match[0].length
       }
-      // Text after last match
       if (lastIndex < text.length) {
         result.push({ ...item, text: text.slice(lastIndex) })
       }
@@ -127,7 +124,7 @@ function expandWikilinksInContent(content: any[]): any[] {
 function DiffView({ diff }: { diff: string }) {
   if (!diff) {
     return (
-      <div className="diff-view__empty">
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         No changes to display
       </div>
     )
@@ -136,23 +133,27 @@ function DiffView({ diff }: { diff: string }) {
   const lines = diff.split('\n')
 
   return (
-    <div className="diff-view">
+    <div className="font-mono text-[13px] leading-relaxed py-3">
       {lines.map((line, i) => {
-        let className = 'diff-view__line diff-view__line--context'
+        let lineClass = 'text-secondary-foreground'
         if (line.startsWith('+') && !line.startsWith('+++')) {
-          className = 'diff-view__line diff-view__line--added'
+          lineClass = 'bg-[rgba(76,175,80,0.12)] text-[#4caf50]'
         } else if (line.startsWith('-') && !line.startsWith('---')) {
-          className = 'diff-view__line diff-view__line--removed'
+          lineClass = 'bg-[rgba(244,67,54,0.12)] text-[#f44336]'
         } else if (line.startsWith('@@')) {
-          className = 'diff-view__line diff-view__line--hunk'
+          lineClass = 'bg-[rgba(33,150,243,0.08)] text-primary italic'
         } else if (line.startsWith('diff') || line.startsWith('index') || line.startsWith('---') || line.startsWith('+++') || line.startsWith('new file')) {
-          className = 'diff-view__line diff-view__line--header'
+          lineClass = 'bg-muted text-muted-foreground font-semibold'
         }
 
         return (
-          <div key={i} className={className}>
-            <span className="diff-view__line-number">{i + 1}</span>
-            <span className="diff-view__line-content">{line || '\u00A0'}</span>
+          <div key={i} className={cn("flex min-h-[22px] px-4", lineClass)}>
+            <span className="w-10 shrink-0 text-right pr-3 text-muted-foreground select-none">
+              {i + 1}
+            </span>
+            <span className="flex-1 whitespace-pre-wrap break-all px-2">
+              {line || '\u00A0'}
+            </span>
           </div>
         )
       })}
@@ -169,7 +170,6 @@ function BlockNoteTab({ content, entries, onNavigateWikilink }: { content: strin
 
   const editor = useCreateBlockNote({ schema })
 
-  // Load markdown content into editor, converting [[target]] to wikilink inline content
   useEffect(() => {
     async function load() {
       const preprocessed = preProcessWikilinks(body)
@@ -180,7 +180,6 @@ function BlockNoteTab({ content, entries, onNavigateWikilink }: { content: strin
     load()
   }, [body, editor])
 
-  // Click handler for wikilinks
   useEffect(() => {
     const container = document.querySelector('.editor__blocknote-container')
     if (!container) return
@@ -197,7 +196,6 @@ function BlockNoteTab({ content, entries, onNavigateWikilink }: { content: strin
     return () => container.removeEventListener('click', handler as EventListener, true)
   }, [editor])
 
-  // Suggestion menu items for [[ trigger
   const getWikilinkItems = useCallback(async (query: string) => {
     const items = entries.map(entry => ({
       title: entry.title,
@@ -216,7 +214,7 @@ function BlockNoteTab({ content, entries, onNavigateWikilink }: { content: strin
     return filterSuggestionItems(items, query)
   }, [entries, editor])
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== 'light'
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
 
   return (
     <div className="editor__blocknote-container" style={cssVars as React.CSSProperties}>
@@ -224,7 +222,6 @@ function BlockNoteTab({ content, entries, onNavigateWikilink }: { content: strin
         editor={editor}
         theme={isDark ? 'dark' : 'light'}
       >
-        {/* Wikilink suggestion menu triggered by [[ */}
         <SuggestionMenuController
           triggerCharacter="[["
           getItems={getWikilinkItems}
@@ -268,52 +265,62 @@ export function Editor({ tabs, activeTabPath, entries, onSwitchTab, onCloseTab, 
 
   if (tabs.length === 0) {
     return (
-      <div className="editor">
-        <div className="editor__drag-strip" data-tauri-drag-region />
-        <div className="editor__placeholder">
-          <p>Select a note to start editing</p>
-          <span className="editor__placeholder-hint">Cmd+P to search &middot; Cmd+N to create</span>
+      <div className="editor flex flex-col bg-background text-foreground">
+        <div className="editor__drag-strip h-12 shrink-0" data-tauri-drag-region style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+          <p className="m-0 text-[15px]">Select a note to start editing</p>
+          <span className="text-xs text-muted-foreground">Cmd+P to search &middot; Cmd+N to create</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="editor">
-      <div className="editor__tab-bar" data-tauri-drag-region>
+    <div className="editor flex flex-col bg-background text-foreground">
+      {/* Tab bar */}
+      <div className="flex shrink-0 overflow-x-auto border-b border-border bg-card" data-tauri-drag-region style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
         {tabs.map((tab) => (
           <div
             key={tab.entry.path}
-            className={`editor__tab${tab.entry.path === activeTabPath ? ' editor__tab--active' : ''}`}
+            className={cn(
+              "flex shrink-0 cursor-pointer items-center gap-1.5 border-r border-border px-3.5 py-[7px] text-xs whitespace-nowrap max-w-[180px] transition-all",
+              tab.entry.path === activeTabPath
+                ? "bg-background text-foreground border-b-2 border-b-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+            )}
             onClick={() => onSwitchTab(tab.entry.path)}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            <span className="editor__tab-title">{tab.entry.title}</span>
+            <span className="truncate">{tab.entry.title}</span>
             <button
-              className="editor__tab-close"
+              className={cn(
+                "shrink-0 rounded-sm p-0 bg-transparent border-none text-muted-foreground cursor-pointer transition-opacity hover:bg-accent hover:text-foreground",
+                tab.entry.path === activeTabPath ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              )}
               onClick={(e) => {
                 e.stopPropagation()
                 onCloseTab(tab.entry.path)
               }}
             >
-              ×
+              <X className="size-3.5" />
             </button>
           </div>
         ))}
         {showDiffToggle && (
-          <div className="editor__tab-bar-actions">
-            <button
-              className={`editor__diff-toggle${diffMode ? ' editor__diff-toggle--active' : ''}`}
+          <div className="ml-auto flex items-center px-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <Button
+              variant={diffMode ? 'default' : 'outline'}
+              size="xs"
               onClick={handleToggleDiff}
               disabled={diffLoading}
-              title={diffMode ? 'Switch to Edit view' : 'Show diff'}
             >
               {diffLoading ? '...' : diffMode ? 'Edit' : 'Diff'}
-            </button>
+            </Button>
           </div>
         )}
       </div>
       {diffMode ? (
-        <div className="editor__diff-container">
+        <div className="flex-1 overflow-auto">
           <DiffView diff={diffContent ?? ''} />
         </div>
       ) : (
