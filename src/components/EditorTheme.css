@@ -125,15 +125,16 @@
   flex-shrink: 0 !important;
 }
 
-/* Nested list indentation — shift the left border to align with bullet symbols */
+/* Nested list indentation */
 .editor__blocknote-container .bn-block-group .bn-block-group {
   margin-left: var(--lists-indent-size);
 }
 
-/* Align the vertical nesting lines (left border) with the center of the bullet */
-.editor__blocknote-container .bn-block-group .bn-block-group[class] {
-  padding-left: calc(var(--lists-indent-size) / 2) !important;
-  border-left-width: 1px !important;
+/* Align the vertical nesting lines with the center of the parent bullet.
+   BlockNote draws the line via ::before on .bn-block-outer inside nested groups.
+   We adjust its left position to align with the bullet center. */
+.editor__blocknote-container .bn-block-group .bn-block-group .bn-block-outer::before {
+  left: calc(var(--lists-indent-size) / 2) !important;
 }
 
 /* --- Numbered lists --- */
