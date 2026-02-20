@@ -172,7 +172,7 @@ function buildRelationshipGroups(
   // 5. All other generic relationship fields (alphabetically)
   const handledKeys = new Set(['Has', 'Topics'])
   const otherKeys = Object.keys(rels)
-    .filter((k) => !handledKeys.has(k))
+    .filter((k) => !handledKeys.has(k) && k.toLowerCase() !== 'type')
     .sort((a, b) => a.localeCompare(b))
   for (const key of otherKeys) {
     const refs = rels[key]
