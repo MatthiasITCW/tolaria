@@ -155,9 +155,9 @@ export function DynamicPropertiesPanel({
       }
       return (
         <span
-          className="inline-block cursor-pointer transition-opacity hover:opacity-80"
+          className="inline-block min-w-0 cursor-pointer truncate transition-opacity hover:opacity-80"
           style={{ backgroundColor: style.bg, color: style.color, borderRadius: 16, padding: '1px 6px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase' as const }}
-          onClick={() => setEditingKey(key)} title="Click to edit"
+          onClick={() => setEditingKey(key)} title={statusStr}
         >
           {statusStr}
         </span>
@@ -208,7 +208,7 @@ export function DynamicPropertiesPanel({
             <span className="font-mono-overline shrink-0 text-muted-foreground">Type</span>
             {onNavigate ? (
               <button
-                className="border-none text-right cursor-pointer hover:opacity-80"
+                className="min-w-0 truncate border-none text-right cursor-pointer hover:opacity-80"
                 style={{
                   background: getTypeLightColor(entry.isA),
                   color: getTypeColor(entry.isA),
@@ -218,6 +218,7 @@ export function DynamicPropertiesPanel({
                   fontWeight: 500,
                 }}
                 onClick={() => onNavigate(`type/${entry.isA!.toLowerCase()}`)}
+                title={entry.isA}
               >
                 {entry.isA}
               </button>

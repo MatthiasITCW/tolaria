@@ -40,9 +40,9 @@ export function EditableValue({
 
   return (
     <span
-      className="cursor-pointer rounded px-1 py-0.5 text-right text-secondary-foreground transition-colors hover:bg-muted"
+      className="min-w-0 cursor-pointer truncate rounded px-1 py-0.5 text-right text-secondary-foreground transition-colors hover:bg-muted"
       onClick={onStartEdit}
-      title="Click to edit"
+      title={value || 'Click to edit'}
     >
       {value || '\u2014'}
     </span>
