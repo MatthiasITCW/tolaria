@@ -127,6 +127,15 @@ function App() {
     setToastMessage('Note restored from trash')
   }, [notes, vault, setToastMessage])
 
+  const handleReorderSections = useCallback((orderedTypes: { typeName: string; order: number }[]) => {
+    for (const { typeName, order } of orderedTypes) {
+      const typeEntry = vault.entries.find((e) => e.isA === 'Type' && e.title === typeName)
+      if (!typeEntry) continue
+      notes.handleUpdateFrontmatter(typeEntry.path, 'order', order)
+      vault.updateEntry(typeEntry.path, { order })
+    }
+  }, [vault, notes])
+
   useAppKeyboard({
     onQuickOpen: () => setShowQuickOpen(true),
     onCreateNote: openCreateDialog,
@@ -177,7 +186,7 @@ function App() {
     <div className="app-shell">
       <div className="app">
         <div className="app__sidebar" style={{ width: sidebarWidth }}>
-          <Sidebar entries={vault.entries} selection={selection} onSelect={setSelection} onSelectNote={notes.handleSelectNote} onCreateType={openCreateDialog} onCreateNewType={openCreateTypeDialog} onCustomizeType={handleCustomizeType} modifiedCount={vault.modifiedFiles.length} onCommitPush={() => setShowCommitDialog(true)} />
+          <Sidebar entries={vault.entries} selection={selection} onSelect={setSelection} onSelectNote={notes.handleSelectNote} onCreateType={openCreateDialog} onCreateNewType={openCreateTypeDialog} onCustomizeType={handleCustomizeType} onReorderSections={handleReorderSections} modifiedCount={vault.modifiedFiles.length} onCommitPush={() => setShowCommitDialog(true)} />
         </div>
         <ResizeHandle onResize={handleSidebarResize} />
         <div className="app__note-list" style={{ width: noteListWidth }}>

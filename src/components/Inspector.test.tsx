@@ -24,6 +24,7 @@ const mockEntry: VaultEntry = {
   relationships: {},
   icon: null,
   color: null,
+    order: null,
 }
 
 const mockContent = `---
@@ -65,6 +66,7 @@ const referrerEntry: VaultEntry = {
   relationships: {},
   icon: null,
   color: null,
+    order: null,
 }
 
 const allContent: Record<string, string> = {

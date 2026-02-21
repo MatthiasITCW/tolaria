@@ -1,10 +1,26 @@
 import { useState, useMemo, useRef, useEffect, useCallback, memo, type ComponentType } from 'react'
 import type { VaultEntry, SidebarSelection } from '../types'
 import { cn } from '@/lib/utils'
-import { ChevronRight, ChevronDown, GitCommitHorizontal, Plus, SlidersHorizontal } from 'lucide-react'
+import { ChevronRight, ChevronDown, GitCommitHorizontal, Plus, SlidersHorizontal, GripVertical } from 'lucide-react'
 import { getTypeColor, getTypeLightColor } from '../utils/typeColors'
 import { resolveIcon, TypeCustomizePopover } from './TypeCustomizePopover'
 import { useSectionVisibility } from '../hooks/useSectionVisibility'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
   FileText,
   Star,
@@ -30,6 +46,7 @@ interface SidebarProps {
   onCreateType?: (type: string) => void
   onCreateNewType?: () => void
   onCustomizeType?: (typeName: string, icon: string, color: string) => void
+  onReorderSections?: (orderedTypes: { typeName: string; order: number }[]) => void
   modifiedCount?: number
   onCommitPush?: () => void
 }
@@ -59,7 +76,7 @@ const BUILT_IN_SECTION_GROUPS: SectionGroup[] = [
 
 const BUILT_IN_TYPES = new Set(BUILT_IN_SECTION_GROUPS.map((s) => s.type))
 
-export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onSelectNote, onCreateType, onCreateNewType, onCustomizeType, modifiedCount = 0, onCommitPush }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onSelectNote, onCreateType, onCreateNewType, onCustomizeType, onReorderSections, modifiedCount = 0, onCommitPush }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [customizeTarget, setCustomizeTarget] = useState<string | null>(null)
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null)
@@ -83,7 +100,7 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
   }, [showCustomize])
 
   const toggleSection = (type: string) => {
-    setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }))
+    setCollapsed((prev) => ({ ...prev, [type]: !(prev[type] ?? true) }))
   }
 
   // Build a map of type name → type entry for quick lookup of icon/color
@@ -130,10 +147,46 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
     })
   }, [typeEntryMap])
 
-  const allSectionGroups = useMemo(
-    () => [...builtInWithOverrides, ...customSectionGroups],
-    [builtInWithOverrides, customSectionGroups],
+  // Merge built-in and custom sections, then sort by order from type entries
+  const allSectionGroups = useMemo(() => {
+    const merged = [...builtInWithOverrides, ...customSectionGroups]
+    return merged.sort((a, b) => {
+      const orderA = typeEntryMap[a.type]?.order ?? Infinity
+      const orderB = typeEntryMap[b.type]?.order ?? Infinity
+      if (orderA !== orderB) return orderA - orderB
+      return a.label.localeCompare(b.label)
+    })
+  }, [builtInWithOverrides, customSectionGroups, typeEntryMap])
+
+  // DnD sensors with activation distance to avoid accidental drags on click
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+
+  const visibleSections = useMemo(
+    () => allSectionGroups.filter((g) => isSectionVisible(g.type)),
+    [allSectionGroups, isSectionVisible],
+  )
+
+  const sectionIds = useMemo(() => visibleSections.map((g) => g.type), [visibleSections])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = sectionIds.indexOf(active.id as string)
+    const newIndex = sectionIds.indexOf(over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    // Compute new order: assign sequential order values to the reordered list
+    const reordered = [...sectionIds]
+    reordered.splice(oldIndex, 1)
+    reordered.splice(newIndex, 0, active.id as string)
+
+    const updates = reordered.map((typeName, i) => ({ typeName, order: i }))
+    onReorderSections?.(updates)
+  }, [sectionIds, onReorderSections])
 
   const archivedCount = useMemo(() => entries.filter((e) => e.archived).length, [entries])
   const trashedCount = useMemo(() => entries.filter((e) => e.trashed).length, [entries])
@@ -192,7 +245,7 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
     }
   }, [customizeTarget, typeEntryMap, onCustomizeType])
 
-  const renderSection = ({ label, type, Icon, customColor }: SectionGroup) => {
+  const renderSectionContent = ({ label, type, Icon, customColor }: SectionGroup, dragHandleProps?: Record<string, unknown>) => {
     const items = entries.filter((e) => e.isA === type && !e.archived && !e.trashed)
     const isCollapsed = collapsed[type] ?? true
     const isTopic = type === 'Topic'
@@ -210,7 +263,7 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
     }
 
     return (
-      <div key={type} style={{ padding: '4px 6px' }}>
+      <>
         {/* Section header row */}
         <div
           className={cn(
@@ -219,13 +272,22 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
               ? "bg-secondary"
               : "hover:bg-accent"
           )}
-          style={{ padding: '6px 16px', borderRadius: 4, gap: 8 }}
+          style={{ padding: '6px 8px 6px 6px', borderRadius: 4, gap: 4 }}
           onClick={() => onSelect({ kind: 'sectionGroup', type })}
           onContextMenu={(e) => handleContextMenu(e, type)}
         >
-          <div className="flex items-center" style={{ gap: 8 }}>
+          <div className="flex items-center" style={{ gap: 4 }}>
+            {/* Drag handle */}
+            <div
+              className="flex shrink-0 items-center justify-center text-muted-foreground opacity-0 group-hover/section:opacity-50 hover:!opacity-100 cursor-grab"
+              style={{ width: 16, height: 16 }}
+              {...dragHandleProps}
+              aria-label={`Drag to reorder ${label}`}
+            >
+              <GripVertical size={12} />
+            </div>
             <Icon size={16} style={{ color: sectionColor }} />
-            <span className="text-[13px] font-medium text-foreground">{label}</span>
+            <span className="text-[13px] font-medium text-foreground" style={{ marginLeft: 4 }}>{label}</span>
           </div>
           <div className="flex items-center" style={{ gap: 2 }}>
             {(onCreateType || (isTypeSection && onCreateNewType)) && (
@@ -281,6 +343,30 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
             ))}
           </div>
         )}
+      </>
+    )
+  }
+
+  function SortableSection({ group }: { group: SectionGroup }) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: group.type })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+      padding: '4px 6px',
+    }
+
+    return (
+      <div ref={setNodeRef} style={style} {...attributes}>
+        {renderSectionContent(group, listeners)}
       </div>
     )
   }
@@ -443,8 +529,14 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
           )}
         </div>
 
-        {/* Section Groups (built-in + custom), filtered by visibility */}
-        {allSectionGroups.filter((g) => isSectionVisible(g.type)).map(renderSection)}
+        {/* Section Groups (built-in + custom), filtered by visibility, sortable by drag */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sectionIds} strategy={verticalListSortingStrategy}>
+            {visibleSections.map((g) => (
+              <SortableSection key={g.type} group={g} />
+            ))}
+          </SortableContext>
+        </DndContext>
       </nav>
 
       {/* Commit button — always visible */}

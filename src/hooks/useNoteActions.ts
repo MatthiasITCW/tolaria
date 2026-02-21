@@ -232,7 +232,7 @@ export function useNoteActions(
       status: noStatusTypes.has(type) ? null : 'Active',
       owner: null, cadence: null, archived: false, trashed: false, trashedAt: null,
       modifiedAt: now, createdAt: now, fileSize: 0,
-      snippet: '', relationships: {}, icon: null, color: null,
+      snippet: '', relationships: {}, icon: null, color: null, order: null,
     }
 
     const frontmatter = [
@@ -260,7 +260,7 @@ export function useNoteActions(
       aliases: [], belongsTo: [], relatedTo: [],
       status: null, owner: null, cadence: null, archived: false, trashed: false, trashedAt: null,
       modifiedAt: now, createdAt: now, fileSize: 0,
-      snippet: '', relationships: {}, icon: null, color: null,
+      snippet: '', relationships: {}, icon: null, color: null, order: null,
     }
 
     const content = `---\nIs A: Type\n---\n\n# ${typeName}\n\n`

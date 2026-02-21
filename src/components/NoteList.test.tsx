@@ -30,6 +30,7 @@ const mockEntries: VaultEntry[] = [
     },
     icon: null,
     color: null,
+    order: null,
   },
   {
     path: '/Users/luca/Laputa/note/facebook-ads-strategy.md',
@@ -55,6 +56,7 @@ const mockEntries: VaultEntry[] = [
     },
     icon: null,
     color: null,
+    order: null,
   },
   {
     path: '/Users/luca/Laputa/person/matteo-cellini.md',
@@ -77,6 +79,7 @@ const mockEntries: VaultEntry[] = [
     relationships: {},
     icon: null,
     color: null,
+    order: null,
   },
   {
     path: '/Users/luca/Laputa/event/2026-02-14-kickoff.md',
@@ -99,6 +102,7 @@ const mockEntries: VaultEntry[] = [
     relationships: {},
     icon: null,
     color: null,
+    order: null,
   },
   {
     path: '/Users/luca/Laputa/topic/software-development.md',
@@ -121,6 +125,7 @@ const mockEntries: VaultEntry[] = [
     relationships: {},
     icon: null,
     color: null,
+    order: null,
   },
 ]
 
@@ -278,6 +283,7 @@ describe('getSortComparator', () => {
     relationships: {},
     icon: null,
     color: null,
+    order: null,
     ...overrides,
   })
 
@@ -353,6 +359,7 @@ describe('NoteList sort controls', () => {
     relationships: {},
     icon: null,
     color: null,
+    order: null,
     ...overrides,
   })
 
