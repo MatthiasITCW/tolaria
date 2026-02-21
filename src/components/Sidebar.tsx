@@ -461,18 +461,23 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
           </div>
         </div>
 
-        {/* Customize sections button + popover */}
+        {/* Sections header + customize popover */}
         <div ref={customizeRef} style={{ position: 'relative', padding: '4px 6px 0' }}>
-          <button
-            className="flex w-full cursor-pointer select-none items-center rounded border-none bg-transparent text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            style={{ padding: '4px 16px', gap: 6 }}
-            onClick={() => setShowCustomize((v) => !v)}
-            aria-label="Customize sections"
-            title="Customize sections"
+          <div
+            className="flex w-full select-none items-center justify-between"
+            style={{ padding: '4px 16px' }}
           >
-            <SlidersHorizontal size={14} />
-            <span className="text-[12px]">Customize sections</span>
-          </button>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sections</span>
+            <button
+              className="flex shrink-0 cursor-pointer items-center justify-center rounded border-none bg-transparent p-0 text-muted-foreground transition-colors hover:text-foreground"
+              style={{ width: 20, height: 20 }}
+              onClick={() => setShowCustomize((v) => !v)}
+              aria-label="Customize sections"
+              title="Customize sections"
+            >
+              <SlidersHorizontal size={14} />
+            </button>
+          </div>
 
           {showCustomize && (
             <div
