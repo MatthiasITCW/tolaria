@@ -73,7 +73,7 @@ export function useMcpBridge(wsUrl = DEFAULT_WS_URL) {
     const id = `mcp-${++idCounterRef.current}`
 
     return new Promise((resolve, reject) => {
-      pendingRef.current.set(id, { resolve, reject })
+      pendingRef.current.set(id, { resolve: resolve as (value: unknown) => void, reject })
       ws.send(JSON.stringify({ id, tool, args }))
 
       // Timeout after 30 seconds

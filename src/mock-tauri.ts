@@ -1749,18 +1749,18 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
   if (apiAvailable) {
     try {
       if (cmd === 'list_vault' && args?.path) {
-        const res = await fetch(`/api/vault/list?path=${encodeURIComponent(args.path)}`)
+        const res = await fetch(`/api/vault/list?path=${encodeURIComponent(args.path as string)}`)
         if (res.ok) return (await res.json()) as T
       }
       if (cmd === 'get_note_content' && args?.path) {
-        const res = await fetch(`/api/vault/content?path=${encodeURIComponent(args.path)}`)
+        const res = await fetch(`/api/vault/content?path=${encodeURIComponent(args.path as string)}`)
         if (res.ok) {
           const { content } = await res.json()
           return content as T
         }
       }
       if (cmd === 'get_all_content' && args?.path) {
-        const res = await fetch(`/api/vault/all-content?path=${encodeURIComponent(args.path)}`)
+        const res = await fetch(`/api/vault/all-content?path=${encodeURIComponent(args.path as string)}`)
         if (res.ok) return (await res.json()) as T
       }
     } catch (err) {

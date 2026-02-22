@@ -238,7 +238,8 @@ export const Editor = memo(function Editor({
     },
   })
   // Cache parsed blocks per tab path for instant switching
-  const tabCacheRef = useRef<Map<string, unknown[]>>(new Map())
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote block arrays
+  const tabCacheRef = useRef<Map<string, any[]>>(new Map())
   const prevActivePathRef = useRef<string | null>(null)
   const editorMountedRef = useRef(false)
   const pendingSwapRef = useRef<(() => void) | null>(null)
@@ -281,7 +282,8 @@ export const Editor = memo(function Editor({
     const tab = tabs.find(t => t.entry.path === activeTabPath)
     if (!tab) return
 
-    const applyBlocks = (blocks: unknown[]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote's PartialBlock generic is extremely complex
+    const applyBlocks = (blocks: any[]) => {
       try {
         const current = editor.document
         if (current.length > 0 && blocks.length > 0) {
@@ -317,7 +319,8 @@ export const Editor = memo(function Editor({
 
       try {
         const result = editor.tryParseMarkdownToBlocks(preprocessed)
-        const handleBlocks = (blocks: unknown[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote block arrays
+        const handleBlocks = (blocks: any[]) => {
           if (prevActivePathRef.current !== targetPath) return
           const withWikilinks = injectWikilinks(blocks)
           // Only cache non-empty results to avoid poisoning the cache
@@ -326,13 +329,15 @@ export const Editor = memo(function Editor({
           }
           applyBlocks(withWikilinks)
         }
-        if (result && typeof (result as Promise<unknown[]>).then === 'function') {
-          (result as Promise<unknown[]>).then(handleBlocks).catch((err) => {
+        /* eslint-disable @typescript-eslint/no-explicit-any -- tryParseMarkdownToBlocks returns sync or async BlockNote blocks */
+        if (result && typeof (result as any).then === 'function') {
+          (result as unknown as Promise<any[]>).then(handleBlocks).catch((err: unknown) => {
             console.error('Async markdown parse failed:', err)
           })
         } else {
-          handleBlocks(result as unknown[])
+          handleBlocks(result as any[])
         }
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       } catch (err) {
         console.error('Failed to parse/swap editor content:', err)
       }
