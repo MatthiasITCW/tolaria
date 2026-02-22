@@ -127,6 +127,18 @@ function App() {
     setToastMessage('Note restored from trash')
   }, [notes, vault, setToastMessage])
 
+  const handleArchiveNote = useCallback(async (path: string) => {
+    await notes.handleUpdateFrontmatter(path, 'archived', true)
+    vault.updateEntry(path, { archived: true })
+    setToastMessage('Note archived')
+  }, [notes, vault, setToastMessage])
+
+  const handleUnarchiveNote = useCallback(async (path: string) => {
+    await notes.handleUpdateFrontmatter(path, 'archived', false)
+    vault.updateEntry(path, { archived: false })
+    setToastMessage('Note unarchived')
+  }, [notes, vault, setToastMessage])
+
   const handleReorderSections = useCallback((orderedTypes: { typeName: string; order: number }[]) => {
     for (const { typeName, order } of orderedTypes) {
       const typeEntry = vault.entries.find((e) => e.isA === 'Type' && e.title === typeName)
@@ -141,6 +153,7 @@ function App() {
     onCreateNote: openCreateDialog,
     onSave: () => setToastMessage('Saved'),
     onTrashNote: handleTrashNote,
+    onArchiveNote: handleArchiveNote,
     activeTabPathRef: notes.activeTabPathRef,
     handleCloseTabRef: notes.handleCloseTabRef,
   })
@@ -221,6 +234,8 @@ function App() {
             vaultPath={vaultPath}
             onTrashNote={handleTrashNote}
             onRestoreNote={handleRestoreNote}
+            onArchiveNote={handleArchiveNote}
+            onUnarchiveNote={handleUnarchiveNote}
           />
         </div>
       </div>

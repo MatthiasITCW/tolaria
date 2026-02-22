@@ -10,6 +10,8 @@ import {
   DotsThree,
   Trash,
   ArrowCounterClockwise,
+  Archive,
+  ArrowUUpLeft,
 } from '@phosphor-icons/react'
 
 interface BreadcrumbBarProps {
@@ -26,14 +28,122 @@ interface BreadcrumbBarProps {
   onToggleInspector?: () => void
   onTrash?: () => void
   onRestore?: () => void
+  onArchive?: () => void
+  onUnarchive?: () => void
 }
 
 const DISABLED_ICON_STYLE = { opacity: 0.4, cursor: 'not-allowed' } as const
 
+function BreadcrumbActions({ entry, showDiffToggle, diffMode, diffLoading, onToggleDiff,
+  showAIChat, onToggleAIChat, inspectorCollapsed, onToggleInspector,
+  onTrash, onRestore, onArchive, onUnarchive,
+}: Omit<BreadcrumbBarProps, 'wordCount' | 'isModified'>) {
+  return (
+    <div className="flex items-center" style={{ gap: 12 }}>
+      <button
+        className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+        title="Search in file"
+      >
+        <MagnifyingGlass size={16} />
+      </button>
+      {showDiffToggle ? (
+        <button
+          className={cn(
+            "flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors",
+            diffMode ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+          onClick={onToggleDiff}
+          disabled={diffLoading}
+          title={diffLoading ? 'Loading diff...' : diffMode ? 'Back to editor' : 'Show diff'}
+        >
+          <GitBranch size={16} />
+        </button>
+      ) : (
+        <button
+          className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground"
+          style={DISABLED_ICON_STYLE}
+          title="No changes"
+          tabIndex={-1}
+        >
+          <GitBranch size={16} />
+        </button>
+      )}
+      <button
+        className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground"
+        style={DISABLED_ICON_STYLE}
+        title="Coming soon"
+        tabIndex={-1}
+      >
+        <CursorText size={16} />
+      </button>
+      <button
+        className={cn(
+          "flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors",
+          showAIChat ? "" : "text-muted-foreground hover:text-foreground"
+        )}
+        style={showAIChat ? { color: 'var(--primary)' } : undefined}
+        onClick={onToggleAIChat}
+        title={showAIChat ? 'Close AI Chat' : 'Open AI Chat'}
+      >
+        <Sparkle size={16} weight={showAIChat ? 'fill' : 'regular'} />
+      </button>
+      {entry.archived ? (
+        <button
+          className="flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors text-muted-foreground hover:text-foreground"
+          onClick={onUnarchive}
+          title="Unarchive (Cmd+E)"
+        >
+          <ArrowUUpLeft size={16} />
+        </button>
+      ) : (
+        <button
+          className="flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors text-muted-foreground hover:text-foreground"
+          onClick={onArchive}
+          title="Archive (Cmd+E)"
+        >
+          <Archive size={16} />
+        </button>
+      )}
+      {entry.trashed ? (
+        <button
+          className="flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors text-muted-foreground hover:text-foreground"
+          onClick={onRestore}
+          title="Restore from trash"
+        >
+          <ArrowCounterClockwise size={16} />
+        </button>
+      ) : (
+        <button
+          className="flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors text-muted-foreground hover:text-destructive"
+          onClick={onTrash}
+          title="Move to trash (Cmd+Delete)"
+        >
+          <Trash size={16} />
+        </button>
+      )}
+      {inspectorCollapsed && (
+        <button
+          className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          onClick={onToggleInspector}
+          title="Open Properties"
+        >
+          <SlidersHorizontal size={16} />
+        </button>
+      )}
+      <button
+        className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground"
+        style={DISABLED_ICON_STYLE}
+        title="Coming soon"
+        tabIndex={-1}
+      >
+        <DotsThree size={16} />
+      </button>
+    </div>
+  )
+}
+
 export const BreadcrumbBar = memo(function BreadcrumbBar({
-  entry, wordCount, isModified, showDiffToggle, diffMode, diffLoading,
-  onToggleDiff, showAIChat, onToggleAIChat, inspectorCollapsed, onToggleInspector,
-  onTrash, onRestore,
+  entry, wordCount, isModified, ...actionProps
 }: BreadcrumbBarProps) {
   return (
     <div
@@ -61,89 +171,7 @@ export const BreadcrumbBar = memo(function BreadcrumbBar({
       </div>
 
       {/* Right: action icons */}
-      <div className="flex items-center" style={{ gap: 12 }}>
-        <button
-          className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-          title="Search in file"
-        >
-          <MagnifyingGlass size={16} />
-        </button>
-        {showDiffToggle ? (
-          <button
-            className={cn(
-              "flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors",
-              diffMode ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-            onClick={onToggleDiff}
-            disabled={diffLoading}
-            title={diffLoading ? 'Loading diff...' : diffMode ? 'Back to editor' : 'Show diff'}
-          >
-            <GitBranch size={16} />
-          </button>
-        ) : (
-          <button
-            className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground"
-            style={DISABLED_ICON_STYLE}
-            title="No changes"
-            tabIndex={-1}
-          >
-            <GitBranch size={16} />
-          </button>
-        )}
-        <button
-          className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground"
-          style={DISABLED_ICON_STYLE}
-          title="Coming soon"
-          tabIndex={-1}
-        >
-          <CursorText size={16} />
-        </button>
-        <button
-          className={cn(
-            "flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors",
-            showAIChat ? "" : "text-muted-foreground hover:text-foreground"
-          )}
-          style={showAIChat ? { color: 'var(--primary)' } : undefined}
-          onClick={onToggleAIChat}
-          title={showAIChat ? 'Close AI Chat' : 'Open AI Chat'}
-        >
-          <Sparkle size={16} weight={showAIChat ? 'fill' : 'regular'} />
-        </button>
-        {entry.trashed ? (
-          <button
-            className="flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors text-muted-foreground hover:text-foreground"
-            onClick={onRestore}
-            title="Restore from trash"
-          >
-            <ArrowCounterClockwise size={16} />
-          </button>
-        ) : (
-          <button
-            className="flex items-center justify-center border-none bg-transparent p-0 cursor-pointer transition-colors text-muted-foreground hover:text-destructive"
-            onClick={onTrash}
-            title="Move to trash (Cmd+Delete)"
-          >
-            <Trash size={16} />
-          </button>
-        )}
-        {inspectorCollapsed && (
-          <button
-            className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-            onClick={onToggleInspector}
-            title="Open Properties"
-          >
-            <SlidersHorizontal size={16} />
-          </button>
-        )}
-        <button
-          className="flex items-center justify-center border-none bg-transparent p-0 text-muted-foreground"
-          style={DISABLED_ICON_STYLE}
-          title="Coming soon"
-          tabIndex={-1}
-        >
-          <DotsThree size={16} />
-        </button>
-      </div>
+      <BreadcrumbActions entry={entry} {...actionProps} />
     </div>
   )
 })

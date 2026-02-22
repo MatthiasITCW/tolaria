@@ -26,6 +26,11 @@ const baseEntry: VaultEntry = {
   color: null,
 }
 
+const archivedEntry: VaultEntry = {
+  ...baseEntry,
+  archived: true,
+}
+
 const trashedEntry: VaultEntry = {
   ...baseEntry,
   trashed: true,
@@ -66,5 +71,33 @@ describe('BreadcrumbBar — trash/restore', () => {
     render(<BreadcrumbBar entry={trashedEntry} {...defaultProps} onTrash={vi.fn()} onRestore={onRestore} />)
     fireEvent.click(screen.getByTitle('Restore from trash'))
     expect(onRestore).toHaveBeenCalledOnce()
+  })
+})
+
+describe('BreadcrumbBar — archive/unarchive', () => {
+  it('shows archive button for non-archived note', () => {
+    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onArchive={vi.fn()} onUnarchive={vi.fn()} />)
+    expect(screen.getByTitle('Archive (Cmd+E)')).toBeInTheDocument()
+    expect(screen.queryByTitle('Unarchive (Cmd+E)')).not.toBeInTheDocument()
+  })
+
+  it('shows unarchive button for archived note', () => {
+    render(<BreadcrumbBar entry={archivedEntry} {...defaultProps} onArchive={vi.fn()} onUnarchive={vi.fn()} />)
+    expect(screen.getByTitle('Unarchive (Cmd+E)')).toBeInTheDocument()
+    expect(screen.queryByTitle('Archive (Cmd+E)')).not.toBeInTheDocument()
+  })
+
+  it('calls onArchive when archive button is clicked', () => {
+    const onArchive = vi.fn()
+    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onArchive={onArchive} />)
+    fireEvent.click(screen.getByTitle('Archive (Cmd+E)'))
+    expect(onArchive).toHaveBeenCalledOnce()
+  })
+
+  it('calls onUnarchive when unarchive button is clicked', () => {
+    const onUnarchive = vi.fn()
+    render(<BreadcrumbBar entry={archivedEntry} {...defaultProps} onUnarchive={onUnarchive} />)
+    fireEvent.click(screen.getByTitle('Unarchive (Cmd+E)'))
+    expect(onUnarchive).toHaveBeenCalledOnce()
   })
 })
