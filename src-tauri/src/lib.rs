@@ -2,6 +2,7 @@ pub mod ai_chat;
 pub mod frontmatter;
 pub mod git;
 pub mod github;
+pub mod menu;
 pub mod settings;
 pub mod vault;
 
@@ -123,6 +124,7 @@ pub fn run() {
             {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
+                menu::setup_menu(app)?;
             }
 
             // Purge trashed files older than 30 days on startup
