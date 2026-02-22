@@ -10,90 +10,89 @@ jobs:
   test:
     name: Tests & Quality Checks
     runs-on: macos-latest
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Full history for CodeScene
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
-          
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-          
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        
-      # 1. Run all tests
+
+      # ── 1. Tests ──────────────────────────────────────────────────────────
       - name: Run frontend tests
         run: pnpm test
-        
+
       - name: Run Rust tests
         run: cargo test --manifest-path=src-tauri/Cargo.toml
-        
-      # 2. Test coverage (with baseline comparison)
-      - name: Run frontend coverage
-        run: pnpm test:coverage || pnpm vitest run --coverage
-        
-      - name: Check coverage threshold
+
+      # ── 2. Coverage (enforced — fails build if thresholds not met) ────────
+      - name: Frontend coverage (≥70% lines/functions/branches/statements)
+        run: pnpm test:coverage
+        # Thresholds configured in vite.config.ts — exits non-zero if coverage drops
+
+      - name: Rust coverage (≥85% lines)
         run: |
-          # Extract coverage percentage from vitest output
-          # This is a simple check - can be enhanced with coverage reporting tools
-          echo "Coverage check would go here - vitest has built-in thresholds"
-          
-      # 3. Code Health (CodeScene)
-      # TODO: Add CodeScene CLI integration when available
-      # For now, rely on local CodeScene checks via MCP
-      - name: CodeScene Check (placeholder)
-        run: |
-          echo "⚠️  CodeScene delta analysis not yet configured"
-          echo "Run locally: codescene delta-analysis --base-revision origin/main"
-          echo "Or use CodeScene MCP tools in Claude Code"
-          
-      # 4. Documentation check (warning only)
+          cargo llvm-cov \
+            --manifest-path src-tauri/Cargo.toml \
+            --fail-under-lines 85
+        # cargo-llvm-cov exits non-zero if line coverage drops below 85%
+
+      # ── 3. Code Health (CodeScene delta analysis) ─────────────────────────
+      - name: CodeScene Delta Analysis
+        uses: codescene-oss/codescene-delta-analysis-action@v1
+        with:
+          codescene-hostname: https://codescene.io
+          api-token: ${{ secrets.CODESCENE_TOKEN }}
+          project-id: ${{ secrets.CODESCENE_PROJECT_ID }}
+          fail-on-declining-code-health: true
+        # Requires CODESCENE_TOKEN + CODESCENE_PROJECT_ID in GitHub Secrets
+        # See .github/SETUP.md for setup instructions
+        continue-on-error: ${{ secrets.CODESCENE_TOKEN == '' }}
+        # Gracefully skip if secrets not configured yet
+
+      # ── 4. Documentation check (warning only — does not fail build) ───────
       - name: Check docs are updated
         continue-on-error: true
         run: |
-          # Skip check if commit message contains [skip docs]
           if git log -1 --pretty=%B | grep -i '\[skip docs\]' > /dev/null; then
-            echo "⏭️  Documentation check skipped (commit message contains [skip docs])"
+            echo "⏭️  Documentation check skipped"
             exit 0
           fi
-          
-          # Get changed files
           if git diff --name-only origin/main | grep -E '^(src/|src-tauri/)' > /dev/null; then
-            # If code changed, check if docs changed too
             if ! git diff --name-only origin/main | grep -E '^docs/' > /dev/null; then
               echo "⚠️  Code files changed but docs/ not updated"
-              echo "Changed code files:"
               git diff --name-only origin/main | grep -E '^(src/|src-tauri/)'
-              echo ""
-              echo "If this change affects architecture/abstractions/design documented in docs/,"
-              echo "please update the relevant documentation files."
-              echo ""
-              echo "To skip this check, include [skip docs] in your commit message."
-              # Warning only - don't fail
-              exit 0
+              echo "If this change affects architecture/abstractions/theme documented in docs/, update them."
+              echo "To suppress: include [skip docs] in your commit message."
             fi
           fi
           echo "✅ Documentation check passed"
-          
-      # Lint checks
+
+      # ── 5. Lint & format ──────────────────────────────────────────────────
       - name: Lint frontend
-        run: pnpm lint || echo "Add lint script to package.json"
-        
+        run: pnpm lint
+
       - name: Clippy (Rust)
         run: cargo clippy --manifest-path=src-tauri/Cargo.toml -- -D warnings
-        
+
       - name: Format check (Rust)
         run: cargo fmt --manifest-path=src-tauri/Cargo.toml -- --check
