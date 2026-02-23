@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useEditorSave } from './useEditorSave'
 
@@ -15,9 +15,9 @@ vi.mock('../mock-tauri', () => ({
 }))
 
 describe('useEditorSave', () => {
-  let updateVaultContent: vi.Mock
-  let setTabs: vi.Mock
-  let setToastMessage: vi.Mock
+  let updateVaultContent: Mock
+  let setTabs: Mock
+  let setToastMessage: Mock
 
   beforeEach(() => {
     updateVaultContent = vi.fn()
