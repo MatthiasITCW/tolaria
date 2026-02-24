@@ -17,6 +17,7 @@ function fireKey(key: string, mods: { altKey?: boolean; metaKey?: boolean; ctrlK
 function makeActions() {
   return {
     onQuickOpen: vi.fn(),
+    onCommandPalette: vi.fn(),
     onCreateNote: vi.fn(),
     onSave: vi.fn(),
     onOpenSettings: vi.fn(),
@@ -85,5 +86,12 @@ describe('useAppKeyboard', () => {
     renderHook(() => useAppKeyboard(actions))
     fireKey('4', { altKey: true })
     expect(actions.onSetViewMode).not.toHaveBeenCalled()
+  })
+
+  it('Cmd+K triggers command palette', () => {
+    const actions = makeActions()
+    renderHook(() => useAppKeyboard(actions))
+    fireKey('k', { metaKey: true })
+    expect(actions.onCommandPalette).toHaveBeenCalled()
   })
 })
