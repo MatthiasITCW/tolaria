@@ -9,12 +9,8 @@ import { getTypeColor, getTypeLightColor } from '../utils/typeColors'
 import { getTypeIcon } from './NoteItem'
 import { findEntryByTarget } from '../utils/wikilinkColors'
 import type { FrontmatterValue } from './Inspector'
-<<<<<<< HEAD
-import { NoteAutocomplete } from './NoteAutocomplete'
-=======
 import { NoteSearchList } from './NoteSearchList'
 import { useNoteSearch } from '../hooks/useNoteSearch'
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
 
 function isWikilink(value: string): boolean {
   return /^\[\[.*\]\]$/.test(value)
@@ -106,9 +102,6 @@ function resolveRefProps(ref: string, entries: VaultEntry[], typeEntryMap: Recor
   }
 }
 
-<<<<<<< HEAD
-function InlineAddNote({ entries, typeEntryMap, onAdd }: {
-=======
 function SearchDropdown({ search, onSelect }: {
   search: ReturnType<typeof useNoteSearch>
   onSelect: (title: string) => void
@@ -128,23 +121,11 @@ function SearchDropdown({ search, onSelect }: {
 }
 
 function InlineAddNote({ entries, onAdd }: {
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
   entries: VaultEntry[]
-  typeEntryMap: Record<string, VaultEntry>
   onAdd: (noteTitle: string) => void
 }) {
   const [active, setActive] = useState(false)
   const [query, setQuery] = useState('')
-<<<<<<< HEAD
-
-  const handleSubmit = useCallback((title: string) => {
-    const trimmed = title.trim()
-    if (!trimmed) return
-    onAdd(trimmed)
-    setQuery('')
-    setActive(false)
-  }, [onAdd])
-=======
   const inputRef = useRef<HTMLInputElement>(null)
   const search = useNoteSearch(entries, query, 8)
 
@@ -164,7 +145,6 @@ function InlineAddNote({ entries, onAdd }: {
     if (e.key === 'Enter') { e.preventDefault(); handleConfirm() }
     else if (e.key === 'Escape') { setQuery(''); setActive(false) }
   }, [search, handleConfirm])
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
 
   if (!active) {
     return (
@@ -181,35 +161,6 @@ function InlineAddNote({ entries, onAdd }: {
   }
 
   return (
-<<<<<<< HEAD
-    <div className="mt-1 flex items-center gap-1">
-      <div className="flex-1" style={{ minWidth: 0 }}>
-        <NoteAutocomplete
-          entries={entries}
-          typeEntryMap={typeEntryMap}
-          value={query}
-          onChange={setQuery}
-          onSelect={handleSubmit}
-          onEscape={() => { setQuery(''); setActive(false) }}
-          placeholder="Note title"
-          autoFocus
-          testId="add-relation-ref-input"
-        />
-      </div>
-      <button
-        className="shrink-0 border-none bg-transparent p-0.5 text-muted-foreground hover:text-foreground"
-        onClick={() => handleSubmit(query)}
-        disabled={!query.trim()}
-      >
-        <Plus size={12} />
-      </button>
-      <button
-        className="shrink-0 border-none bg-transparent p-0.5 text-muted-foreground hover:text-foreground"
-        onClick={() => { setQuery(''); setActive(false) }}
-      >
-        <X size={12} />
-      </button>
-=======
     <div className="relative mt-1">
       <div className="flex items-center gap-1">
         <input
@@ -240,7 +191,6 @@ function InlineAddNote({ entries, onAdd }: {
       {query.trim() && search.results.length > 0 && (
         <SearchDropdown search={search} onSelect={selectAndClose} />
       )}
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
     </div>
   )
 }
@@ -267,7 +217,7 @@ function RelationshipGroup({ label, refs, entries, typeEntryMap, onNavigate, onR
           )
         })}
       </div>
-      {onAddRef && <InlineAddNote entries={entries} typeEntryMap={typeEntryMap} onAdd={onAddRef} />}
+      {onAddRef && <InlineAddNote entries={entries} onAdd={onAddRef} />}
     </div>
   )
 }
@@ -284,9 +234,6 @@ function extractRelationshipRefs(frontmatter: ParsedFrontmatter): { key: string;
     .filter(({ refs }) => refs.length > 0)
 }
 
-<<<<<<< HEAD
-function AddRelationshipForm({ entries, typeEntryMap, onAddProperty }: {
-=======
 function NoteTargetInput({ entries, value, onChange, onSubmit, onCancel }: {
   entries: VaultEntry[]
   value: string
@@ -328,9 +275,7 @@ function NoteTargetInput({ entries, value, onChange, onSubmit, onCancel }: {
 }
 
 function AddRelationshipForm({ entries, onAddProperty }: {
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
   entries: VaultEntry[]
-  typeEntryMap: Record<string, VaultEntry>
   onAddProperty: (key: string, value: FrontmatterValue) => void
 }) {
   const [relKey, setRelKey] = useState('')
@@ -346,13 +291,9 @@ function AddRelationshipForm({ entries, onAddProperty }: {
     setRelKey(''); setRelTarget(''); setShowForm(false)
   }, [relKey, relTarget, onAddProperty])
 
-<<<<<<< HEAD
-  const resetForm = () => { setShowForm(false); setRelKey(''); setRelTarget('') }
-=======
   const resetForm = useCallback(() => {
     setShowForm(false); setRelKey(''); setRelTarget('')
   }, [])
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
 
   if (!showForm) {
     return (
@@ -370,24 +311,9 @@ function AddRelationshipForm({ entries, onAddProperty }: {
         placeholder="Relationship name"
         value={relKey}
         onChange={e => setRelKey(e.target.value)}
-<<<<<<< HEAD
-        onKeyDown={e => { if (e.key === 'Escape') resetForm() }}
+        onKeyDown={e => { if (e.key === 'Enter') submitForm(); else if (e.key === 'Escape') resetForm() }}
       />
-      <NoteAutocomplete
-        entries={entries}
-        typeEntryMap={typeEntryMap}
-        value={relTarget}
-        onChange={setRelTarget}
-        onSelect={(title) => submitForm(title)}
-        onEscape={resetForm}
-        placeholder="Note title"
-        testId="add-relationship-note-input"
-      />
-=======
-        onKeyDown={e => { if (e.key === 'Enter') handleAdd(); else if (e.key === 'Escape') resetForm() }}
-      />
-      <NoteTargetInput entries={entries} value={relTarget} onChange={setRelTarget} onSubmit={handleAdd} onCancel={resetForm} />
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
+      <NoteTargetInput entries={entries} value={relTarget} onChange={setRelTarget} onSubmit={submitForm} onCancel={resetForm} />
       <div className="flex gap-1.5">
         <button className="flex-1 border border-border bg-transparent text-xs text-foreground" style={{ borderRadius: 4, padding: '4px 0' }} onClick={() => submitForm()} disabled={!relKey.trim() || !relTarget.trim()}>Add</button>
         <button className="border border-border bg-transparent text-xs text-muted-foreground" style={{ borderRadius: 4, padding: '4px 8px' }} onClick={resetForm}>Cancel</button>
@@ -396,24 +322,6 @@ function AddRelationshipForm({ entries, onAddProperty }: {
   )
 }
 
-<<<<<<< HEAD
-function removeRefFromGroup(groups: { key: string; refs: string[] }[], key: string, refToRemove: string, onUpdate: (k: string, v: FrontmatterValue) => void, onDelete: (k: string) => void) {
-  const group = groups.find(g => g.key === key)
-  if (!group) return
-  const remaining = group.refs.filter(r => r !== refToRemove)
-  if (remaining.length === 0) onDelete(key)
-  else if (remaining.length === 1) onUpdate(key, remaining[0])
-  else onUpdate(key, remaining)
-}
-
-function addRefToGroup(groups: { key: string; refs: string[] }[], key: string, noteTitle: string, onUpdate: (k: string, v: FrontmatterValue) => void) {
-  const existing = groups.find(g => g.key === key)?.refs ?? []
-  const newRef = `[[${noteTitle}]]`
-  if (existing.includes(newRef)) return
-  const updated = [...existing, newRef]
-  if (updated.length === 1) onUpdate(key, updated[0])
-  else onUpdate(key, updated)
-=======
 function updateRefsForRemoval(refs: string[], refToRemove: string): FrontmatterValue | null {
   const remaining = refs.filter(r => r !== refToRemove)
   if (remaining.length === 0) return null
@@ -425,7 +333,6 @@ function updateRefsForAddition(refs: string[], noteTitle: string): FrontmatterVa
   if (refs.includes(newRef)) return false
   const updated = [...refs, newRef]
   return updated.length === 1 ? updated[0] : updated
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
 }
 
 export function DynamicRelationshipsPanel({ frontmatter, entries, typeEntryMap, onNavigate, onAddProperty, onUpdateProperty, onDeleteProperty }: {
@@ -439,26 +346,18 @@ export function DynamicRelationshipsPanel({ frontmatter, entries, typeEntryMap, 
 
   const handleRemoveRef = useCallback((key: string, refToRemove: string) => {
     if (!onUpdateProperty || !onDeleteProperty) return
-<<<<<<< HEAD
-    removeRefFromGroup(relationshipEntries, key, refToRemove, onUpdateProperty, onDeleteProperty)
-=======
     const group = relationshipEntries.find(g => g.key === key)
     if (!group) return
     const result = updateRefsForRemoval(group.refs, refToRemove)
     if (result === null) onDeleteProperty(key)
     else onUpdateProperty(key, result)
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
   }, [relationshipEntries, onUpdateProperty, onDeleteProperty])
 
   const handleAddRef = useCallback((key: string, noteTitle: string) => {
     if (!onUpdateProperty) return
-<<<<<<< HEAD
-    addRefToGroup(relationshipEntries, key, noteTitle, onUpdateProperty)
-=======
     const existing = relationshipEntries.find(g => g.key === key)?.refs ?? []
     const result = updateRefsForAddition(existing, noteTitle)
     if (result !== false) onUpdateProperty(key, result)
->>>>>>> 02982c8 (feat: unify note search into shared NoteSearchList + useNoteSearch)
   }, [relationshipEntries, onUpdateProperty])
 
   const canEdit = !!onUpdateProperty && !!onDeleteProperty
@@ -476,7 +375,7 @@ export function DynamicRelationshipsPanel({ frontmatter, entries, typeEntryMap, 
         ))
       }
       {onAddProperty
-        ? <AddRelationshipForm entries={entries} typeEntryMap={typeEntryMap} onAddProperty={onAddProperty} />
+        ? <AddRelationshipForm entries={entries} onAddProperty={onAddProperty} />
         : <button className="mt-2 w-full border border-border bg-transparent text-center text-muted-foreground" style={{ borderRadius: 6, padding: '6px 12px', fontSize: 12, opacity: 0.5, cursor: 'not-allowed' }} disabled>+ Link existing</button>
       }
     </div>
