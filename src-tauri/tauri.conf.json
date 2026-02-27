@@ -50,7 +50,7 @@
       "endpoints": [
         "https://github.com/refactoringhq/laputa-app/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENDQjg3QTY2M0RGRUUwNDkKUldSSjRQNDlabnE0ek8zVE1aYTlEOUI0cWV6dE00TDJHNWhqV2FEU0tSSE9pemVzNk5IV0dNbFEK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE2Rjc1RkVDQUEyM0YwMzcKUldRMzhDT3E3Ri8zRmdWbnJrZEd1NUNxT3YzR1AwQWxPZlNvUFRKWHhpZm5SUVkvc0pJRlJlcVcK"
     }
   }
 }
